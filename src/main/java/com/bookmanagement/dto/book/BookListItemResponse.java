@@ -1,0 +1,22 @@
+package com.bookmanagement.dto.book;
+
+import com.bookmanagement.domain.enums.BookStatus;
+import com.bookmanagement.dto.tag.TagResponse;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.List;
+
+public record BookListItemResponse(
+        Long id,
+        BookStatus status,
+        BigDecimal rating,
+        boolean favoriteFlag,
+        LocalDate purchaseDate,
+        LocalDate startDate,
+        LocalDate finishDate,
+        OffsetDateTime updatedAt,
+        List<TagResponse> tags,
+        BookMasterSummaryResponse bookMaster
+) {
+}

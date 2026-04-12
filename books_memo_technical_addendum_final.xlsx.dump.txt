@@ -1,0 +1,849 @@
+FILE: books_memo_technical_addendum_final.xlsx
+SHEETS: ['00_Cover', '01_Assumptions', '02_DDL_Tables', '03_DDL_SQL', '04_OpenAPI_Summary', '05_OpenAPI_YAML', '06_ER_Relations', '07_ER_Diagram', '08_Screen_Transitions', '09_Screen_Diagram', '10_WBS', '11_References']
+
+=== SHEET: 00_Cover ===
+DIMENSION: rows=19, cols=2
+Books Memo 追加技術設計書 | 
+DDL / OpenAPI / ER図 / 画面遷移図 / 実装タスク分解 | 
+前提 | 
+前提スタック | Java (Spring Boot) + React + PostgreSQL
+アプリ形態 | 個人向け Web アプリ。将来の複数ユーザー化に対応
+ISBN連携 | openBD を第一優先、未取得時は Google Books を fallback。どちらも未取得なら手動入力
+API仕様方針 | OpenAPI 3.1.1 形式で REST API を整理
+DB設計方針 | 書誌原本(book_master)と個人利用情報(user_book)を分離
+非機能方針 | MVP で動作優先。監査ログ・request_id・論理削除を標準実装
+収録内容 | 
+• | DDL(SQL)
+• | OpenAPI 定義
+• | ER 図
+• | 画面遷移図
+• | 実装タスク分解(WBS)
+• | 参考URL
+
+=== SHEET: 01_Assumptions ===
+DIMENSION: rows=7, cols=2
+項目 | 内容
+前提スタック | Java (Spring Boot) + React + PostgreSQL
+アプリ形態 | 個人向け Web アプリ。将来の複数ユーザー化に対応
+ISBN連携 | openBD を第一優先、未取得時は Google Books を fallback。どちらも未取得なら手動入力
+API仕様方針 | OpenAPI 3.1.1 形式で REST API を整理
+DB設計方針 | 書誌原本(book_master)と個人利用情報(user_book)を分離
+非機能方針 | MVP で動作優先。監査ログ・request_id・論理削除を標準実装
+
+=== SHEET: 02_DDL_Tables ===
+DIMENSION: rows=8, cols=4
+Table | Purpose | PK | Main columns
+app.users | ユーザー認証・プロフィール | id | email, display_name, role, password_hash
+app.book_master | 書誌原本メタデータ | id | isbn13, title, authors_json, publisher
+app.user_book | ユーザーごとの所持・進捗・評価 | id | user_id, book_master_id, status, rating, memo
+app.tags | ユーザー定義タグ | id | user_id, name, color_hex, sort_order
+app.user_book_tag | 本とタグの中間 | id | user_book_id, tag_id
+app.isbn_lookup_cache | 外部ISBN検索キャッシュ | id | isbn13, source_name, response_json, normalized_payload_json
+app.activity_log | 監査ログ・追跡用 | id | user_id, action_type, target_type, request_id
+
+=== SHEET: 03_DDL_SQL ===
+DIMENSION: rows=213, cols=2
+Line | SQL
+1 | -- ============================================================
+2 | -- Books Memo / PostgreSQL DDL
+3 | -- Assumption: PostgreSQL 16+ / schema = app
+4 | -- ============================================================
+5 | 
+6 | CREATE SCHEMA IF NOT EXISTS app;
+7 | CREATE EXTENSION IF NOT EXISTS pg_trgm;
+8 | 
+9 | -- ------------------------------------------------------------
+10 | -- generic trigger for updated_at
+11 | -- ------------------------------------------------------------
+12 | CREATE OR REPLACE FUNCTION app.set_updated_at()
+13 | RETURNS TRIGGER AS $$
+14 | BEGIN
+15 |     NEW.updated_at = CURRENT_TIMESTAMP;
+16 |     RETURN NEW;
+17 | END;
+18 | $$ LANGUAGE plpgsql;
+19 | 
+20 | -- ------------------------------------------------------------
+21 | -- users
+22 | -- ------------------------------------------------------------
+23 | CREATE TABLE IF NOT EXISTS app.users (
+24 |     id               BIGSERIAL PRIMARY KEY,
+25 |     email            VARCHAR(255) NOT NULL,
+26 |     password_hash    VARCHAR(255) NOT NULL,
+27 |     display_name     VARCHAR(100) NOT NULL,
+28 |     role             VARCHAR(30)  NOT NULL DEFAULT 'USER'
+29 |                      CHECK (role IN ('USER', 'ADMIN')),
+30 |     is_active        BOOLEAN      NOT NULL DEFAULT TRUE,
+31 |     last_login_at    TIMESTAMPTZ  NULL,
+32 |     created_at       TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+33 |     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP
+34 | );
+35 | 
+36 | CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower
+37 |     ON app.users (LOWER(email));
+38 | 
+39 | CREATE TRIGGER trg_users_updated_at
+40 | BEFORE UPDATE ON app.users
+41 | FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+42 | 
+43 | -- ------------------------------------------------------------
+44 | -- book_master
+45 | -- ------------------------------------------------------------
+46 | CREATE TABLE IF NOT EXISTS app.book_master (
+47 |     id                      BIGSERIAL PRIMARY KEY,
+48 |     isbn13                  CHAR(13) NULL
+49 |                             CHECK (isbn13 ~ '^[0-9]{13}$'),
+50 |     isbn10                  CHAR(10) NULL
+51 |                             CHECK (isbn10 ~ '^[0-9X]{10}$'),
+52 |     title                   VARCHAR(500) NOT NULL,
+53 |     subtitle                VARCHAR(500) NULL,
+54 |     authors_json            JSONB NULL,
+55 |     publisher               VARCHAR(255) NULL,
+56 |     published_date          DATE NULL,
+57 |     language_code           VARCHAR(10) NULL,
+58 |     page_count              INTEGER NULL CHECK (page_count IS NULL OR page_count >= 1),
+59 |     description             TEXT NULL,
+60 |     thumbnail_url           TEXT NULL,
+61 |     source_primary          VARCHAR(30) NOT NULL
+62 |                             CHECK (source_primary IN ('OPENBD', 'GOOGLE_BOOKS', 'MANUAL')),
+63 |     source_last_fetched_at  TIMESTAMPTZ NULL,
+64 |     created_at              TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+65 |     updated_at              TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+66 | );
+67 | 
+68 | CREATE UNIQUE INDEX IF NOT EXISTS uq_book_master_isbn13
+69 |     ON app.book_master (isbn13)
+70 |     WHERE isbn13 IS NOT NULL;
+71 | 
+72 | CREATE INDEX IF NOT EXISTS idx_book_master_title_trgm
+73 |     ON app.book_master USING GIN (title gin_trgm_ops);
+74 | 
+75 | CREATE INDEX IF NOT EXISTS idx_book_master_publisher_trgm
+76 |     ON app.book_master USING GIN (publisher gin_trgm_ops);
+77 | 
+78 | CREATE TRIGGER trg_book_master_updated_at
+79 | BEFORE UPDATE ON app.book_master
+80 | FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+81 | 
+82 | -- ------------------------------------------------------------
+83 | -- user_book
+84 | -- ------------------------------------------------------------
+85 | CREATE TABLE IF NOT EXISTS app.user_book (
+86 |     id               BIGSERIAL PRIMARY KEY,
+87 |     user_id          BIGINT NOT NULL REFERENCES app.users(id),
+88 |     book_master_id   BIGINT NOT NULL REFERENCES app.book_master(id),
+89 |     status           VARCHAR(30) NOT NULL
+90 |                      CHECK (status IN ('WISHLIST', 'PURCHASED', 'READING', 'FINISHED', 'ON_HOLD', 'DROPPED', 'TSUNDOKU')),
+91 |     rating           NUMERIC(2,1) NULL
+92 |                      CHECK (rating IS NULL OR (rating >= 0.5 AND rating <= 5.0 AND MOD((rating * 10)::INTEGER, 5) = 0)),
+93 |     favorite_flag    BOOLEAN NOT NULL DEFAULT FALSE,
+94 |     purchase_date    DATE NULL,
+95 |     start_date       DATE NULL,
+96 |     finish_date      DATE NULL,
+97 |     memo             TEXT NULL,
+98 |     location_note    VARCHAR(255) NULL,
+99 |     created_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+100 |     updated_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+101 |     deleted_at       TIMESTAMPTZ NULL,
+102 |     CONSTRAINT chk_user_book_dates
+103 |         CHECK (finish_date IS NULL OR start_date IS NULL OR finish_date >= start_date)
+104 | );
+105 | 
+106 | CREATE UNIQUE INDEX IF NOT EXISTS uq_user_book_active
+107 |     ON app.user_book (user_id, book_master_id)
+108 |     WHERE deleted_at IS NULL;
+109 | 
+110 | CREATE INDEX IF NOT EXISTS idx_user_book_user_status_updated
+111 |     ON app.user_book (user_id, status, updated_at DESC)
+112 |     WHERE deleted_at IS NULL;
+113 | 
+114 | CREATE INDEX IF NOT EXISTS idx_user_book_user_rating
+115 |     ON app.user_book (user_id, rating DESC)
+116 |     WHERE deleted_at IS NULL;
+117 | 
+118 | CREATE INDEX IF NOT EXISTS idx_user_book_user_dates
+119 |     ON app.user_book (user_id, start_date, finish_date)
+120 |     WHERE deleted_at IS NULL;
+121 | 
+122 | CREATE TRIGGER trg_user_book_updated_at
+123 | BEFORE UPDATE ON app.user_book
+124 | FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+125 | 
+126 | -- ------------------------------------------------------------
+127 | -- tags
+128 | -- ------------------------------------------------------------
+129 | CREATE TABLE IF NOT EXISTS app.tags (
+130 |     id               BIGSERIAL PRIMARY KEY,
+131 |     user_id          BIGINT NOT NULL REFERENCES app.users(id),
+132 |     name             VARCHAR(50) NOT NULL,
+133 |     color_hex        CHAR(7) NULL CHECK (color_hex IS NULL OR color_hex ~ '^#[0-9A-Fa-f]{6}$'),
+134 |     sort_order       INTEGER NOT NULL DEFAULT 0,
+135 |     created_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+136 |     updated_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+137 | );
+138 | 
+139 | CREATE UNIQUE INDEX IF NOT EXISTS uq_tags_user_name
+140 |     ON app.tags (user_id, name);
+141 | 
+142 | CREATE INDEX IF NOT EXISTS idx_tags_user_sort
+143 |     ON app.tags (user_id, sort_order, id);
+144 | 
+145 | CREATE TRIGGER trg_tags_updated_at
+146 | BEFORE UPDATE ON app.tags
+147 | FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+148 | 
+149 | -- ------------------------------------------------------------
+150 | -- user_book_tag
+151 | -- ------------------------------------------------------------
+152 | CREATE TABLE IF NOT EXISTS app.user_book_tag (
+153 |     id               BIGSERIAL PRIMARY KEY,
+154 |     user_book_id     BIGINT NOT NULL REFERENCES app.user_book(id) ON DELETE CASCADE,
+155 |     tag_id           BIGINT NOT NULL REFERENCES app.tags(id) ON DELETE CASCADE,
+156 |     created_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+157 | );
+158 | 
+159 | CREATE UNIQUE INDEX IF NOT EXISTS uq_user_book_tag
+160 |     ON app.user_book_tag (user_book_id, tag_id);
+161 | 
+162 | CREATE INDEX IF NOT EXISTS idx_user_book_tag_tag_id
+163 |     ON app.user_book_tag (tag_id, user_book_id);
+164 | 
+165 | -- ------------------------------------------------------------
+166 | -- isbn_lookup_cache
+167 | -- ------------------------------------------------------------
+168 | CREATE TABLE IF NOT EXISTS app.isbn_lookup_cache (
+169 |     id                        BIGSERIAL PRIMARY KEY,
+170 |     isbn13                    CHAR(13) NOT NULL CHECK (isbn13 ~ '^[0-9]{13}$'),
+171 |     source_name               VARCHAR(30) NOT NULL
+172 |                               CHECK (source_name IN ('OPENBD', 'GOOGLE_BOOKS', 'RAKUTEN')),
+173 |     http_status               INTEGER NOT NULL,
+174 |     response_json             JSONB NULL,
+175 |     normalized_payload_json   JSONB NULL,
+176 |     fetched_at                TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+177 |     expires_at                TIMESTAMPTZ NOT NULL,
+178 |     hit_count                 INTEGER NOT NULL DEFAULT 1
+179 |                               CHECK (hit_count >= 1)
+180 | );
+181 | 
+182 | CREATE INDEX IF NOT EXISTS idx_isbn_cache_lookup
+183 |     ON app.isbn_lookup_cache (isbn13, source_name, expires_at DESC);
+184 | 
+185 | CREATE INDEX IF NOT EXISTS idx_isbn_cache_fetched_at
+186 |     ON app.isbn_lookup_cache (fetched_at DESC);
+187 | 
+188 | -- ------------------------------------------------------------
+189 | -- activity_log
+190 | -- ------------------------------------------------------------
+191 | CREATE TABLE IF NOT EXISTS app.activity_log (
+192 |     id               BIGSERIAL PRIMARY KEY,
+193 |     user_id          BIGINT NULL REFERENCES app.users(id),
+194 |     action_type      VARCHAR(50) NOT NULL,
+195 |     target_type      VARCHAR(50) NOT NULL,
+196 |     target_id        BIGINT NULL,
+197 |     request_id       VARCHAR(64) NOT NULL,
+198 |     detail_json      JSONB NULL,
+199 |     created_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+200 | );
+201 | 
+202 | CREATE INDEX IF NOT EXISTS idx_activity_log_request_id
+203 |     ON app.activity_log (request_id);
+204 | 
+205 | CREATE INDEX IF NOT EXISTS idx_activity_log_user_created
+206 |     ON app.activity_log (user_id, created_at DESC);
+207 | 
+208 | -- ------------------------------------------------------------
+209 | -- optional seed example
+210 | -- ------------------------------------------------------------
+211 | -- INSERT INTO app.users(email, password_hash, display_name)
+212 | -- VALUES ('demo@example.com', '$2a$10$replace_me', 'Demo User');
+
+=== SHEET: 04_OpenAPI_Summary ===
+DIMENSION: rows=16, cols=6
+Method | Path | Purpose | Auth | Main parameters | Responses
+POST | /auth/login | ログイン | 匿名 | email / password | 200, 401
+POST | /auth/logout | ログアウト | Bearer | - | 204
+GET | /me | ログインユーザー取得 | Bearer | - | 200
+GET | /books | 本一覧検索 | Bearer | keyword, status, tagId, favorite, sort, page, size | 200
+POST | /books | 手動登録 | Bearer | title 必須 | 201, 409
+POST | /books/import-by-isbn | ISBN 取込登録 | Bearer | isbn, status | 201, 404
+GET | /books/{userBookId} | 本詳細 | Bearer | path: userBookId | 200, 404
+PATCH | /books/{userBookId} | 本更新 | Bearer | status, rating, memo, tagIds ... | 200
+DELETE | /books/{userBookId} | 論理削除 | Bearer | path: userBookId | 204
+PATCH | /books/{userBookId}/status | 状態のみ更新 | Bearer | status | 200
+GET | /tags | タグ一覧 | Bearer | - | 200
+POST | /tags | タグ作成 | Bearer | name | 201
+PATCH | /tags/{tagId} | タグ更新 | Bearer | name, colorHex, sortOrder | 200
+DELETE | /tags/{tagId} | タグ削除 | Bearer | path: tagId | 204
+GET | /isbn/{isbn} | ISBN 候補取得のみ | Bearer | path: isbn | 200, 404
+
+=== SHEET: 05_OpenAPI_YAML ===
+DIMENSION: rows=499, cols=2
+Line | YAML
+1 | openapi: 3.1.1
+2 | info:
+3 |   title: Books Memo API
+4 |   version: 1.0.0
+5 |   summary: Personal reading tracker API
+6 |   description: >-
+7 |     Books Memo 向けの REST API。書誌原本(book_master)と個人利用情報(user_book)を分離し、
+8 |     ISBN 取り込み、タグ管理、読書状態更新を提供する。
+9 | servers:
+10 |   - url: https://api.example.com/api/v1
+11 |     description: production
+12 |   - url: http://localhost:8080/api/v1
+13 |     description: local
+14 | security:
+15 |   - bearerAuth: []
+16 | tags:
+17 |   - name: Auth
+18 |   - name: Books
+19 |   - name: ISBN
+20 |   - name: Tags
+21 | paths:
+22 |   /auth/login:
+23 |     post:
+24 |       tags: [Auth]
+25 |       summary: Login
+26 |       security: []
+27 |       requestBody:
+28 |         required: true
+29 |         content:
+30 |           application/json:
+31 |             schema:
+32 |               $ref: '#/components/schemas/LoginRequest'
+33 |       responses:
+34 |         '200':
+35 |           description: Login success
+36 |           content:
+37 |             application/json:
+38 |               schema:
+39 |                 $ref: '#/components/schemas/LoginResponse'
+40 |         '401':
+41 |           description: Invalid credentials
+42 |           content:
+43 |             application/json:
+44 |               schema:
+45 |                 $ref: '#/components/schemas/ApiError'
+46 |   /auth/logout:
+47 |     post:
+48 |       tags: [Auth]
+49 |       summary: Logout
+50 |       responses:
+51 |         '204':
+52 |           description: Logout success
+53 |   /me:
+54 |     get:
+55 |       tags: [Auth]
+56 |       summary: Get current user
+57 |       responses:
+58 |         '200':
+59 |           description: Current user profile
+60 |           content:
+61 |             application/json:
+62 |               schema:
+63 |                 $ref: '#/components/schemas/MeResponse'
+64 |   /books:
+65 |     get:
+66 |       tags: [Books]
+67 |       summary: Search books
+68 |       parameters:
+69 |         - in: query
+70 |           name: keyword
+71 |           schema: { type: string, maxLength: 100 }
+72 |         - in: query
+73 |           name: status
+74 |           schema:
+75 |             $ref: '#/components/schemas/BookStatus'
+76 |         - in: query
+77 |           name: tagId
+78 |           schema: { type: integer, format: int64 }
+79 |         - in: query
+80 |           name: favorite
+81 |           schema: { type: boolean }
+82 |         - in: query
+83 |           name: sort
+84 |           schema:
+85 |             type: string
+86 |             enum: [updatedAtDesc, createdAtDesc, titleAsc, ratingDesc, publishedDateDesc]
+87 |         - in: query
+88 |           name: page
+89 |           schema: { type: integer, minimum: 1, default: 1 }
+90 |         - in: query
+91 |           name: size
+92 |           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+93 |       responses:
+94 |         '200':
+95 |           description: Paged list
+96 |           content:
+97 |             application/json:
+98 |               schema:
+99 |                 $ref: '#/components/schemas/BookListResponse'
+100 |     post:
+101 |       tags: [Books]
+102 |       summary: Create manual book entry
+103 |       requestBody:
+104 |         required: true
+105 |         content:
+106 |           application/json:
+107 |             schema:
+108 |               $ref: '#/components/schemas/CreateBookRequest'
+109 |       responses:
+110 |         '201':
+111 |           description: Created
+112 |           content:
+113 |             application/json:
+114 |               schema:
+115 |                 $ref: '#/components/schemas/UserBookDetail'
+116 |         '409':
+117 |           description: Duplicate active record
+118 |           content:
+119 |             application/json:
+120 |               schema:
+121 |                 $ref: '#/components/schemas/ApiError'
+122 |   /books/import-by-isbn:
+123 |     post:
+124 |       tags: [Books, ISBN]
+125 |       summary: Import book by ISBN
+126 |       requestBody:
+127 |         required: true
+128 |         content:
+129 |           application/json:
+130 |             schema:
+131 |               $ref: '#/components/schemas/ImportByIsbnRequest'
+132 |       responses:
+133 |         '201':
+134 |           description: Imported
+135 |           content:
+136 |             application/json:
+137 |               schema:
+138 |                 $ref: '#/components/schemas/UserBookDetail'
+139 |         '404':
+140 |           description: ISBN not found in providers
+141 |           content:
+142 |             application/json:
+143 |               schema:
+144 |                 $ref: '#/components/schemas/ApiError'
+145 |   /books/{userBookId}:
+146 |     get:
+147 |       tags: [Books]
+148 |       summary: Get detail
+149 |       parameters:
+150 |         - $ref: '#/components/parameters/UserBookId'
+151 |       responses:
+152 |         '200':
+153 |           description: Detail
+154 |           content:
+155 |             application/json:
+156 |               schema:
+157 |                 $ref: '#/components/schemas/UserBookDetail'
+158 |         '404':
+159 |           description: Not found
+160 |           content:
+161 |             application/json:
+162 |               schema:
+163 |                 $ref: '#/components/schemas/ApiError'
+164 |     patch:
+165 |       tags: [Books]
+166 |       summary: Update book info
+167 |       parameters:
+168 |         - $ref: '#/components/parameters/UserBookId'
+169 |       requestBody:
+170 |         required: true
+171 |         content:
+172 |           application/json:
+173 |             schema:
+174 |               $ref: '#/components/schemas/UpdateBookRequest'
+175 |       responses:
+176 |         '200':
+177 |           description: Updated
+178 |           content:
+179 |             application/json:
+180 |               schema:
+181 |                 $ref: '#/components/schemas/UserBookDetail'
+182 |     delete:
+183 |       tags: [Books]
+184 |       summary: Logical delete
+185 |       parameters:
+186 |         - $ref: '#/components/parameters/UserBookId'
+187 |       responses:
+188 |         '204':
+189 |           description: Deleted
+190 |   /books/{userBookId}/status:
+191 |     patch:
+192 |       tags: [Books]
+193 |       summary: Update reading status only
+194 |       parameters:
+195 |         - $ref: '#/components/parameters/UserBookId'
+196 |       requestBody:
+197 |         required: true
+198 |         content:
+199 |           application/json:
+200 |             schema:
+201 |               $ref: '#/components/schemas/UpdateStatusRequest'
+202 |       responses:
+203 |         '200':
+204 |           description: Updated
+205 |           content:
+206 |             application/json:
+207 |               schema:
+208 |                 $ref: '#/components/schemas/UserBookDetail'
+209 |   /tags:
+210 |     get:
+211 |       tags: [Tags]
+212 |       summary: List tags
+213 |       responses:
+214 |         '200':
+215 |           description: Tag list
+216 |           content:
+217 |             application/json:
+218 |               schema:
+219 |                 type: object
+220 |                 properties:
+221 |                   items:
+222 |                     type: array
+223 |                     items:
+224 |                       $ref: '#/components/schemas/Tag'
+225 |     post:
+226 |       tags: [Tags]
+227 |       summary: Create tag
+228 |       requestBody:
+229 |         required: true
+230 |         content:
+231 |           application/json:
+232 |             schema:
+233 |               $ref: '#/components/schemas/CreateTagRequest'
+234 |       responses:
+235 |         '201':
+236 |           description: Created
+237 |           content:
+238 |             application/json:
+239 |               schema:
+240 |                 $ref: '#/components/schemas/Tag'
+241 |   /tags/{tagId}:
+242 |     patch:
+243 |       tags: [Tags]
+244 |       summary: Update tag
+245 |       parameters:
+246 |         - $ref: '#/components/parameters/TagId'
+247 |       requestBody:
+248 |         required: true
+249 |         content:
+250 |           application/json:
+251 |             schema:
+252 |               $ref: '#/components/schemas/UpdateTagRequest'
+253 |       responses:
+254 |         '200':
+255 |           description: Updated
+256 |           content:
+257 |             application/json:
+258 |               schema:
+259 |                 $ref: '#/components/schemas/Tag'
+260 |     delete:
+261 |       tags: [Tags]
+262 |       summary: Delete tag
+263 |       parameters:
+264 |         - $ref: '#/components/parameters/TagId'
+265 |       responses:
+266 |         '204':
+267 |           description: Deleted
+268 |   /isbn/{isbn}:
+269 |     get:
+270 |       tags: [ISBN]
+271 |       summary: Lookup ISBN candidates without creating user_book
+272 |       parameters:
+273 |         - in: path
+274 |           name: isbn
+275 |           required: true
+276 |           schema:
+277 |             type: string
+278 |             pattern: '^[0-9X-]{10,17}$'
+279 |       responses:
+280 |         '200':
+281 |           description: Candidate data
+282 |           content:
+283 |             application/json:
+284 |               schema:
+285 |                 $ref: '#/components/schemas/IsbnLookupResponse'
+286 |         '404':
+287 |           description: Not found
+288 |           content:
+289 |             application/json:
+290 |               schema:
+291 |                 $ref: '#/components/schemas/ApiError'
+292 | components:
+293 |   securitySchemes:
+294 |     bearerAuth:
+295 |       type: http
+296 |       scheme: bearer
+297 |       bearerFormat: JWT
+298 |   parameters:
+299 |     UserBookId:
+300 |       in: path
+301 |       name: userBookId
+302 |       required: true
+303 |       schema: { type: integer, format: int64 }
+304 |     TagId:
+305 |       in: path
+306 |       name: tagId
+307 |       required: true
+308 |       schema: { type: integer, format: int64 }
+309 |   schemas:
+310 |     BookStatus:
+311 |       type: string
+312 |       enum: [WISHLIST, PURCHASED, READING, FINISHED, ON_HOLD, DROPPED, TSUNDOKU]
+313 |     LoginRequest:
+314 |       type: object
+315 |       required: [email, password]
+316 |       properties:
+317 |         email: { type: string, format: email }
+318 |         password: { type: string, minLength: 8, maxLength: 72 }
+319 |     LoginResponse:
+320 |       type: object
+321 |       required: [accessToken, tokenType, expiresIn, user]
+322 |       properties:
+323 |         accessToken: { type: string }
+324 |         tokenType: { type: string, example: Bearer }
+325 |         expiresIn: { type: integer, example: 3600 }
+326 |         user:
+327 |           $ref: '#/components/schemas/MeResponse'
+328 |     MeResponse:
+329 |       type: object
+330 |       required: [id, email, displayName, role]
+331 |       properties:
+332 |         id: { type: integer, format: int64 }
+333 |         email: { type: string, format: email }
+334 |         displayName: { type: string }
+335 |         role: { type: string, enum: [USER, ADMIN] }
+336 |     BookMasterSummary:
+337 |       type: object
+338 |       required: [title, sourcePrimary]
+339 |       properties:
+340 |         id: { type: integer, format: int64 }
+341 |         isbn13: { type: string, nullable: true }
+342 |         isbn10: { type: string, nullable: true }
+343 |         title: { type: string }
+344 |         subtitle: { type: string, nullable: true }
+345 |         authors: { type: array, items: { type: string } }
+346 |         publisher: { type: string, nullable: true }
+347 |         publishedDate: { type: string, format: date, nullable: true }
+348 |         thumbnailUrl: { type: string, nullable: true }
+349 |         sourcePrimary: { type: string, enum: [OPENBD, GOOGLE_BOOKS, MANUAL] }
+350 |     Tag:
+351 |       type: object
+352 |       required: [id, name, sortOrder]
+353 |       properties:
+354 |         id: { type: integer, format: int64 }
+355 |         name: { type: string, maxLength: 50 }
+356 |         colorHex: { type: string, pattern: '^#[0-9A-Fa-f]{6}$', nullable: true }
+357 |         sortOrder: { type: integer }
+358 |     BookListItem:
+359 |       type: object
+360 |       required: [id, status, favoriteFlag, bookMaster]
+361 |       properties:
+362 |         id: { type: integer, format: int64 }
+363 |         status: { $ref: '#/components/schemas/BookStatus' }
+364 |         rating: { type: number, format: double, nullable: true }
+365 |         favoriteFlag: { type: boolean }
+366 |         purchaseDate: { type: string, format: date, nullable: true }
+367 |         startDate: { type: string, format: date, nullable: true }
+368 |         finishDate: { type: string, format: date, nullable: true }
+369 |         updatedAt: { type: string, format: date-time }
+370 |         tags:
+371 |           type: array
+372 |           items:
+373 |             $ref: '#/components/schemas/Tag'
+374 |         bookMaster:
+375 |           $ref: '#/components/schemas/BookMasterSummary'
+376 |     PaginationMeta:
+377 |       type: object
+378 |       required: [page, size, totalItems, totalPages]
+379 |       properties:
+380 |         page: { type: integer }
+381 |         size: { type: integer }
+382 |         totalItems: { type: integer, format: int64 }
+383 |         totalPages: { type: integer }
+384 |     BookListResponse:
+385 |       type: object
+386 |       required: [items, meta]
+387 |       properties:
+388 |         items:
+389 |           type: array
+390 |           items:
+391 |             $ref: '#/components/schemas/BookListItem'
+392 |         meta:
+393 |           $ref: '#/components/schemas/PaginationMeta'
+394 |     UserBookDetail:
+395 |       allOf:
+396 |         - $ref: '#/components/schemas/BookListItem'
+397 |         - type: object
+398 |           properties:
+399 |             memo: { type: string, nullable: true }
+400 |             locationNote: { type: string, nullable: true }
+401 |             createdAt: { type: string, format: date-time }
+402 |             deletedAt: { type: string, format: date-time, nullable: true }
+403 |     CreateBookRequest:
+404 |       type: object
+405 |       required: [title, status]
+406 |       properties:
+407 |         isbn13: { type: string, nullable: true }
+408 |         isbn10: { type: string, nullable: true }
+409 |         title: { type: string, maxLength: 500 }
+410 |         subtitle: { type: string, nullable: true }
+411 |         authors: { type: array, items: { type: string } }
+412 |         publisher: { type: string, nullable: true }
+413 |         publishedDate: { type: string, format: date, nullable: true }
+414 |         description: { type: string, nullable: true }
+415 |         thumbnailUrl: { type: string, nullable: true }
+416 |         status: { $ref: '#/components/schemas/BookStatus' }
+417 |         rating: { type: number, format: double, nullable: true }
+418 |         favoriteFlag: { type: boolean, default: false }
+419 |         memo: { type: string, nullable: true }
+420 |         tagIds:
+421 |           type: array
+422 |           items: { type: integer, format: int64 }
+423 |     ImportByIsbnRequest:
+424 |       type: object
+425 |       required: [isbn, status]
+426 |       properties:
+427 |         isbn: { type: string }
+428 |         status: { $ref: '#/components/schemas/BookStatus' }
+429 |         memo: { type: string, nullable: true }
+430 |         tagIds:
+431 |           type: array
+432 |           items: { type: integer, format: int64 }
+433 |     UpdateBookRequest:
+434 |       type: object
+435 |       properties:
+436 |         status: { $ref: '#/components/schemas/BookStatus' }
+437 |         rating: { type: number, format: double, nullable: true }
+438 |         favoriteFlag: { type: boolean }
+439 |         purchaseDate: { type: string, format: date, nullable: true }
+440 |         startDate: { type: string, format: date, nullable: true }
+441 |         finishDate: { type: string, format: date, nullable: true }
+442 |         memo: { type: string, nullable: true }
+443 |         locationNote: { type: string, nullable: true }
+444 |         tagIds:
+445 |           type: array
+446 |           items: { type: integer, format: int64 }
+447 |     UpdateStatusRequest:
+448 |       type: object
+449 |       required: [status]
+450 |       properties:
+451 |         status: { $ref: '#/components/schemas/BookStatus' }
+452 |     CreateTagRequest:
+453 |       type: object
+454 |       required: [name]
+455 |       properties:
+456 |         name: { type: string, maxLength: 50 }
+457 |         colorHex: { type: string, pattern: '^#[0-9A-Fa-f]{6}$', nullable: true }
+458 |         sortOrder: { type: integer, default: 0 }
+459 |     UpdateTagRequest:
+460 |       type: object
+461 |       properties:
+462 |         name: { type: string, maxLength: 50 }
+463 |         colorHex: { type: string, pattern: '^#[0-9A-Fa-f]{6}$', nullable: true }
+464 |         sortOrder: { type: integer }
+465 |     IsbnLookupCandidate:
+466 |       type: object
+467 |       required: [isbn13, title, sourceName]
+468 |       properties:
+469 |         isbn13: { type: string }
+470 |         isbn10: { type: string, nullable: true }
+471 |         title: { type: string }
+472 |         subtitle: { type: string, nullable: true }
+473 |         authors: { type: array, items: { type: string } }
+474 |         publisher: { type: string, nullable: true }
+475 |         publishedDate: { type: string, format: date, nullable: true }
+476 |         thumbnailUrl: { type: string, nullable: true }
+477 |         description: { type: string, nullable: true }
+478 |         sourceName: { type: string, enum: [OPENBD, GOOGLE_BOOKS, MANUAL] }
+479 |         cacheHit: { type: boolean }
+480 |     IsbnLookupResponse:
+481 |       type: object
+482 |       required: [queryIsbn, candidates]
+483 |       properties:
+484 |         queryIsbn: { type: string }
+485 |         candidates:
+486 |           type: array
+487 |           items:
+488 |             $ref: '#/components/schemas/IsbnLookupCandidate'
+489 |     ApiError:
+490 |       type: object
+491 |       required: [code, message, requestId]
+492 |       properties:
+493 |         code: { type: string, example: BOOK_DUPLICATE }
+494 |         message: { type: string }
+495 |         requestId: { type: string }
+496 |         details:
+497 |           type: array
+498 |           items: { type: string }
+
+=== SHEET: 06_ER_Relations ===
+DIMENSION: rows=6, cols=4
+From | Relation | To | Meaning
+users | 1:N | user_book | 1ユーザーが複数の蔵書レコードを持つ
+book_master | 1:N | user_book | 同一書誌原本を複数ユーザーが参照できる
+user_book | N:N | tags | user_book_tag を介してタグ付け
+isbn_lookup_cache | cache | book_master | 外部取得結果を正規化前後で保持
+users | 1:N | activity_log | 操作履歴と request_id を保持
+
+=== SHEET: 07_ER_Diagram ===
+DIMENSION: rows=1, cols=1
+ER Diagram
+
+=== SHEET: 08_Screen_Transitions ===
+DIMENSION: rows=8, cols=4
+Screen ID | Name | Main role | Transitions
+SCR-01 | ログイン | 初期入口 | SCR-02 本一覧
+SCR-02 | 本一覧 | 検索 / タブ / 並び替え / 一覧 / 追加 | SCR-03 編集 / SCR-04 ISBN / SCR-05 詳細 / SCR-06 タグ / SCR-07 設定
+SCR-03 | 本登録・編集 | 手動入力・保存・キャンセル | SCR-02 本一覧 / SCR-05 詳細
+SCR-04 | ISBN 検索モーダル | ISBN入力・外部候補取得・フォーム反映 | SCR-03 本登録・編集
+SCR-05 | 本詳細 | 状態 / 評価 / メモ / タグ確認 | SCR-03 編集 / SCR-02 本一覧
+SCR-06 | タグ管理 | タグ追加・更新・削除 | SCR-02 本一覧 / SCR-03 編集
+SCR-07 | 設定 | プロフィール / パスワード / キャッシュ再取得 | SCR-02 本一覧
+
+=== SHEET: 09_Screen_Diagram ===
+DIMENSION: rows=1, cols=1
+Screen Transition Diagram
+
+=== SHEET: 10_WBS ===
+DIMENSION: rows=31, cols=9
+Phase | Category | Task | Days | Cumulative Days | Hours/Day | Dependencies | Done criteria | Task Hours
+P0 | 環境構築 | リポジトリ・CI・Spring Boot/React 初期化 | 0.5 | 0.5 | 8.0 |  | 着手可能 | 4
+P0 | 環境構築 | Docker Compose(PostgreSQL)・env 整備 | 0.5 | 1.0 | 8.0 | P0-1 | ローカル起動 | 4
+P1 | DB/DDL | DDL 実装・マイグレーション作成 | 1.0 | 2.0 | 8.0 | P0 | テーブル生成 | 8
+P1 | DB/DDL | updated_at trigger・初期 index 作成 | 0.5 | 2.5 | 8.0 | P1-1 | DDL 完了 | 4
+P2 | 認証 | login / logout / me API 実装 | 1.0 | 3.5 | 8.0 | P0 | 認証通過 | 8
+P2 | 認証 | JWT/Session 方針確定・ガード実装 | 0.5 | 4.0 | 8.0 | P2-1 | 保護ルート可 | 4
+P3 | 書誌管理 | book_master / user_book entity/repository/service | 1.0 | 5.0 | 8.0 | P1 | 基礎 CRUD 可 | 8
+P3 | 書誌管理 | 本一覧 API + 検索 + ページング | 1.0 | 6.0 | 8.0 | P3-1 | 一覧取得可 | 8
+P3 | 書誌管理 | 本詳細 API + 更新 + 論理削除 | 1.0 | 7.0 | 8.0 | P3-2 | 詳細更新可 | 8
+P4 | ISBN連携 | ISBN 正規化・openBD クライアント | 1.0 | 8.0 | 8.0 | P3 | openBD 応答確認 | 8
+P4 | ISBN連携 | Google Books fallback 実装 | 0.5 | 8.5 | 8.0 | P4-1 | fallback 可 | 4
+P4 | ISBN連携 | isbn_lookup_cache 実装 | 0.5 | 9.0 | 8.0 | P4-1 | cache 再利用可 | 4
+P4 | ISBN連携 | import-by-isbn API 実装 | 0.5 | 9.5 | 8.0 | P4-1,P4-2,P4-3 | 取込登録可 | 4
+P5 | タグ管理 | tags / user_book_tag CRUD | 0.5 | 10.0 | 8.0 | P1 | タグ登録可 | 4
+P5 | タグ管理 | 一覧フィルタ連携 | 0.5 | 10.5 | 8.0 | P5-1,P3-2 | タグ絞込可 | 4
+P6 | Frontend | ログイン画面作成 | 0.5 | 11.0 | 8.0 | P2 | ログインUI | 4
+P6 | Frontend | 本一覧画面・検索バー・タブ | 1.0 | 12.0 | 8.0 | P3-2 | 一覧UI | 8
+P6 | Frontend | 本登録/編集画面 | 1.0 | 13.0 | 8.0 | P3-3 | 編集UI | 8
+P6 | Frontend | ISBN モーダル + 候補反映 | 0.5 | 13.5 | 8.0 | P4-4 | ISBN UI | 4
+P6 | Frontend | タグ管理・設定画面 | 0.5 | 14.0 | 8.0 | P5 | 補助画面 | 4
+P7 | 品質 | API テスト・バリデーション確認 | 1.0 | 15.0 | 8.0 | P2,P3,P4,P5 | 主要API緑 | 8
+P7 | 品質 | E2E シナリオ（ログイン→登録→検索→更新→削除） | 1.0 | 16.0 | 8.0 | P6 | 主要導線OK | 8
+P8 | 仕上げ | エラー文言・ローディング・空状態 | 0.5 | 16.5 | 8.0 | P6,P7 | UI 調整 | 4
+P8 | 仕上げ | README・ER図・OpenAPI 公開 | 0.5 | 17.0 | 8.0 | P7 | 公開準備 | 4
+Summary |  |  |  |  |  |  |  | 
+Total days | 0 |  |  |  |  |  |  | 
+Total hours | 136 |  |  |  |  |  |  | 
+Milestone | MVP completion target after Phase P8 |  |  |  |  |  |  | 
+
+=== SHEET: 11_References ===
+DIMENSION: rows=7, cols=2
+Reference | URL
+OpenAPI FAQ / latest version | https://www.openapis.org/faq
+OpenAPI spec 3.1.1 | https://spec.openapis.org/oas/v3.1.1.html
+PostgreSQL CREATE TABLE | https://www.postgresql.org/docs/current/sql-createtable.html
+PostgreSQL data types | https://www.postgresql.org/docs/current/datatype.html
+openBD official top | https://openbd.jp/
+Google Books API usage | https://developers.google.com/books/docs/v1/using
