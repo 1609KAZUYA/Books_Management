@@ -39,6 +39,8 @@ public class GoogleBooksProvider implements IsbnProvider {
             String uri = UriComponentsBuilder
                     .fromHttpUrl(appProperties.getIsbn().getGoogleBooksUrl())
                     .queryParam("q", "isbn:" + normalizedIsbn13)
+                    .build()
+                    .encode()
                     .toUriString();
 
             String body = restClient.get().uri(uri).retrieve().body(String.class);
@@ -51,39 +53,93 @@ public class GoogleBooksProvider implements IsbnProvider {
             if (!items.isArray() || items.isEmpty()) {
                 return Optional.empty();
             }
-            JsonNode volumeInfo = items.get(0).path("volumeInfo");
-
-            String title = text(volumeInfo, "title");
-            if (!StringUtils.hasText(title)) {
-                return Optional.empty();
-            }
-
-            String subtitle = text(volumeInfo, "subtitle");
-            List<String> authors = arrayOfText(volumeInfo.path("authors"));
-            String publisher = text(volumeInfo, "publisher");
-            LocalDate publishedDate = parsePublishedDate(text(volumeInfo, "publishedDate"));
-            String thumbnail = text(volumeInfo.path("imageLinks"), "thumbnail");
-            String description = text(volumeInfo, "description");
-            String isbn10 = extractIsbn10(volumeInfo.path("industryIdentifiers"), normalizedIsbn13);
-
-            BookMetadata metadata = new BookMetadata(
-                    normalizedIsbn13,
-                    isbn10,
-                    title,
-                    subtitle,
-                    authors,
-                    publisher,
-                    publishedDate,
-                    thumbnail,
-                    description,
-                    SourceName.GOOGLE_BOOKS,
-                    false
-            );
-            return Optional.of(metadata);
+            return parseVolume(items.get(0).path("volumeInfo"), normalizedIsbn13);
         } catch (Exception ex) {
             log.warn("Google Books lookup failed: {}", ex.getMessage());
             return Optional.empty();
         }
+    }
+
+    public List<BookMetadata> search(String query, int maxResults) {
+        try {
+            String uri = UriComponentsBuilder
+                    .fromHttpUrl(appProperties.getIsbn().getGoogleBooksUrl())
+                    .queryParam("q", query)
+                    .queryParam("maxResults", maxResults)
+                    .build()
+                    .encode()
+                    .toUriString();
+
+            String body = restClient.get().uri(uri).retrieve().body(String.class);
+            if (!StringUtils.hasText(body)) {
+                return List.of();
+            }
+
+            JsonNode root = objectMapper.readTree(body);
+            JsonNode items = root.path("items");
+            if (!items.isArray() || items.isEmpty()) {
+                return List.of();
+            }
+            List<BookMetadata> results = new ArrayList<>();
+            for (JsonNode item : items) {
+                parseVolume(item.path("volumeInfo"), null).ifPresent(results::add);
+            }
+            return results;
+        } catch (Exception ex) {
+            log.warn("Google Books search failed: {}", ex.getMessage());
+            return List.of();
+        }
+    }
+
+    private Optional<BookMetadata> parseVolume(JsonNode volumeInfo, String fallbackIsbn13) {
+        String title = text(volumeInfo, "title");
+        if (!StringUtils.hasText(title)) {
+            return Optional.empty();
+        }
+
+        JsonNode identifiers = volumeInfo.path("industryIdentifiers");
+        String isbn13 = extractIsbn13(identifiers, fallbackIsbn13);
+        String isbn10 = extractIsbn10(identifiers, isbn13);
+        String subtitle = text(volumeInfo, "subtitle");
+        List<String> authors = arrayOfText(volumeInfo.path("authors"));
+        String publisher = text(volumeInfo, "publisher");
+        LocalDate publishedDate = parsePublishedDate(text(volumeInfo, "publishedDate"));
+        String thumbnail = text(volumeInfo.path("imageLinks"), "thumbnail");
+        String description = text(volumeInfo, "description");
+
+        return Optional.of(new BookMetadata(
+                isbn13,
+                isbn10,
+                title,
+                subtitle,
+                authors,
+                publisher,
+                publishedDate,
+                thumbnail,
+                description,
+                SourceName.GOOGLE_BOOKS,
+                false
+        ));
+    }
+
+    private String extractIsbn13(JsonNode industryIdentifiers, String fallbackIsbn13) {
+        if (industryIdentifiers.isArray()) {
+            for (JsonNode identifier : industryIdentifiers) {
+                String type = text(identifier, "type");
+                String value = text(identifier, "identifier");
+                if ("ISBN_13".equals(type) && StringUtils.hasText(value)) {
+                    return isbnNormalizer.normalizeToIsbn13(value).orElse(null);
+                }
+            }
+            for (JsonNode identifier : industryIdentifiers) {
+                String type = text(identifier, "type");
+                String value = text(identifier, "identifier");
+                if ("ISBN_10".equals(type) && StringUtils.hasText(value)) {
+                    return isbnNormalizer.normalizeToIsbn13(value).orElse(null);
+                }
+            }
+        }
+        return fallbackIsbn13;
     }
 
     private String extractIsbn10(JsonNode industryIdentifiers, String isbn13) {

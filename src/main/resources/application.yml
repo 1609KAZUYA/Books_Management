@@ -36,6 +36,9 @@ logging:
 app:
   default-user-email: ${DEFAULT_USER_EMAIL:demo@example.com}
   isbn:
-    openbd-url: ${OPENBD_URL:https://openbd.jp/get}
+    openbd-url: ${OPENBD_URL:https://api.openbd.jp/v1/get}
     google-books-url: ${GOOGLE_BOOKS_URL:https://www.googleapis.com/books/v1/volumes}
     cache-ttl: ${ISBN_CACHE_TTL:P7D}
+  jwt:
+    secret: ${JWT_SECRET:booksMemo-development-jwt-secret-key-for-HS256-algorithm-32bytes}
+    expiry-seconds: ${JWT_EXPIRY_SECONDS:86400}

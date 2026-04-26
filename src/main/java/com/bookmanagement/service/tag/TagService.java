@@ -28,8 +28,8 @@ public class TagService {
     private final UserContextService userContextService;
 
     @Transactional(readOnly = true)
-    public TagListResponse listTags(Long headerUserId) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+    public TagListResponse listTags() {
+        User user = userContextService.requireCurrentUser();
         List<TagResponse> items = tagRepository.findByUser_IdOrderBySortOrderAscIdAsc(user.getId())
                 .stream()
                 .map(this::toResponse)
@@ -38,8 +38,8 @@ public class TagService {
     }
 
     @Transactional
-    public TagResponse createTag(Long headerUserId, CreateTagRequest request) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+    public TagResponse createTag(CreateTagRequest request) {
+        User user = userContextService.requireCurrentUser();
         String name = normalizeTagName(request.name());
         if (tagRepository.existsByUser_IdAndNameIgnoreCase(user.getId(), name)) {
             throw new DuplicateException("TAG-409", "Tag name already exists");
@@ -54,8 +54,8 @@ public class TagService {
     }
 
     @Transactional
-    public TagResponse updateTag(Long headerUserId, Long tagId, UpdateTagRequest request) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+    public TagResponse updateTag(Long tagId, UpdateTagRequest request) {
+        User user = userContextService.requireCurrentUser();
         Tag tag = tagRepository.findByIdAndUser_Id(tagId, user.getId())
                 .orElseThrow(() -> new NotFoundException("TAG-404", "Tag not found"));
 
@@ -78,8 +78,8 @@ public class TagService {
     }
 
     @Transactional
-    public void deleteTag(Long headerUserId, Long tagId) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+    public void deleteTag(Long tagId) {
+        User user = userContextService.requireCurrentUser();
         Tag tag = tagRepository.findByIdAndUser_Id(tagId, user.getId())
                 .orElseThrow(() -> new NotFoundException("TAG-404", "Tag not found"));
         tagRepository.delete(tag);

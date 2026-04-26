@@ -1,6 +1,5 @@
 package com.bookmanagement.service.book;
 
-import com.bookmanagement.common.exception.DuplicateException;
 import com.bookmanagement.common.exception.NotFoundException;
 import com.bookmanagement.common.exception.ValidationException;
 import com.bookmanagement.domain.entity.BookMaster;
@@ -39,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -62,10 +62,10 @@ public class BookService {
     private final TagService tagService;
     private final IsbnLookupService isbnLookupService;
     private final IsbnNormalizer isbnNormalizer;
+    private final BookCoverService bookCoverService;
 
     @Transactional(readOnly = true)
     public BookListResponse searchBooks(
-            Long headerUserId,
             String keyword,
             BookStatus status,
             Long tagId,
@@ -74,7 +74,7 @@ public class BookService {
             int page,
             int size
     ) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+        User user = userContextService.requireCurrentUser();
         Pageable pageable = PageRequest.of(page - 1, size, resolveSort(sort));
 
         Specification<UserBook> spec = byUser(user.getId())
@@ -96,13 +96,22 @@ public class BookService {
     }
 
     @Transactional
-    public UserBookDetailResponse createManualBook(Long headerUserId, CreateBookRequest request) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+    public UserBookDetailResponse createManualBook(CreateBookRequest request) {
+        User user = userContextService.requireCurrentUser();
         validateRatingStep(request.rating());
 
         String isbn13 = resolveIsbn13(request.isbn13(), request.isbn10());
+        Optional<UserBook> repairableUserBook = findRepairableUserBook(user.getId(), request, isbn13);
+        if (repairableUserBook.isPresent()) {
+            return repairUserBookMaster(repairableUserBook.get(), request, isbn13);
+        }
+
         BookMaster bookMaster = resolveOrCreateManualBookMaster(request, isbn13);
-        ensureNotDuplicated(user.getId(), bookMaster.getId());
+        Optional<UserBook> existingUserBook = userBookRepository
+                .findByUser_IdAndBookMaster_IdAndDeletedAtIsNull(user.getId(), bookMaster.getId());
+        if (existingUserBook.isPresent()) {
+            return toDetail(existingUserBook.get());
+        }
 
         UserBook userBook = new UserBook();
         userBook.setUser(user);
@@ -119,14 +128,33 @@ public class BookService {
                 .orElseThrow(() -> new NotFoundException("BOOK-404", "Created book not found")));
     }
 
+    private Optional<UserBook> findRepairableUserBook(Long userId, CreateBookRequest request, String isbn13) {
+        if (!StringUtils.hasText(isbn13) || !StringUtils.hasText(request.title())) {
+            return Optional.empty();
+        }
+        return userBookRepository.findRepairableUserBooks(userId, request.title().trim()).stream().findFirst();
+    }
+
+    private UserBookDetailResponse repairUserBookMaster(UserBook userBook, CreateBookRequest request, String isbn13) {
+        BookMaster repairedMaster = bookMasterRepository.findByIsbn13(isbn13)
+                .map(existing -> updateMissingBookMasterFields(existing, request, isbn13))
+                .orElseGet(() -> updateMissingBookMasterFields(userBook.getBookMaster(), request, isbn13));
+        userBook.setBookMaster(repairedMaster);
+        return toDetail(userBookRepository.save(userBook));
+    }
+
     @Transactional
-    public UserBookDetailResponse importByIsbn(Long headerUserId, ImportByIsbnRequest request) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+    public UserBookDetailResponse importByIsbn(ImportByIsbnRequest request) {
+        User user = userContextService.requireCurrentUser();
         BookMetadata metadata = isbnLookupService.lookupFirstForImport(request.isbn());
         BookMaster bookMaster = bookMasterRepository.findByIsbn13(metadata.isbn13())
                 .orElseGet(() -> createBookMasterFromMetadata(metadata));
 
-        ensureNotDuplicated(user.getId(), bookMaster.getId());
+        Optional<UserBook> existingUserBook = userBookRepository
+                .findByUser_IdAndBookMaster_IdAndDeletedAtIsNull(user.getId(), bookMaster.getId());
+        if (existingUserBook.isPresent()) {
+            return toDetail(existingUserBook.get());
+        }
 
         UserBook userBook = new UserBook();
         userBook.setUser(user);
@@ -141,14 +169,14 @@ public class BookService {
     }
 
     @Transactional(readOnly = true)
-    public UserBookDetailResponse getBookDetail(Long headerUserId, Long userBookId) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+    public UserBookDetailResponse getBookDetail(Long userBookId) {
+        User user = userContextService.requireCurrentUser();
         return toDetail(findUserBookOrThrow(user.getId(), userBookId));
     }
 
     @Transactional
-    public UserBookDetailResponse updateBook(Long headerUserId, Long userBookId, UpdateBookRequest request) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+    public UserBookDetailResponse updateBook(Long userBookId, UpdateBookRequest request) {
+        User user = userContextService.requireCurrentUser();
         UserBook userBook = findUserBookOrThrow(user.getId(), userBookId);
 
         if (request.status() != null) {
@@ -186,16 +214,16 @@ public class BookService {
     }
 
     @Transactional
-    public void deleteBook(Long headerUserId, Long userBookId) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+    public void deleteBook(Long userBookId) {
+        User user = userContextService.requireCurrentUser();
         UserBook userBook = findUserBookOrThrow(user.getId(), userBookId);
         userBook.setDeletedAt(OffsetDateTime.now());
         userBookRepository.save(userBook);
     }
 
     @Transactional
-    public UserBookDetailResponse updateStatus(Long headerUserId, Long userBookId, UpdateStatusRequest request) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+    public UserBookDetailResponse updateStatus(Long userBookId, UpdateStatusRequest request) {
+        User user = userContextService.requireCurrentUser();
         UserBook userBook = findUserBookOrThrow(user.getId(), userBookId);
         userBook.setStatus(request.status());
 
@@ -217,8 +245,8 @@ public class BookService {
     }
 
     @Transactional
-    public void addTag(Long headerUserId, Long userBookId, Long tagId) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+    public void addTag(Long userBookId, Long tagId) {
+        User user = userContextService.requireCurrentUser();
         UserBook userBook = findUserBookOrThrow(user.getId(), userBookId);
         Tag tag = tagRepository.findByIdAndUser_Id(tagId, user.getId())
                 .orElseThrow(() -> new NotFoundException("TAG-404", "Tag not found"));
@@ -233,8 +261,8 @@ public class BookService {
     }
 
     @Transactional
-    public void removeTag(Long headerUserId, Long userBookId, Long tagId) {
-        User user = userContextService.requireCurrentUser(headerUserId);
+    public void removeTag(Long userBookId, Long tagId) {
+        User user = userContextService.requireCurrentUser();
         findUserBookOrThrow(user.getId(), userBookId);
         userBookTagRepository.findByUserBook_IdAndTag_Id(userBookId, tagId)
                 .ifPresent(userBookTagRepository::delete);
@@ -248,9 +276,65 @@ public class BookService {
     private BookMaster resolveOrCreateManualBookMaster(CreateBookRequest request, String isbn13) {
         if (StringUtils.hasText(isbn13)) {
             return bookMasterRepository.findByIsbn13(isbn13)
+                    .map(existing -> updateMissingBookMasterFields(existing, request, isbn13))
+                    .or(() -> bookMasterRepository.findFirstByTitleIgnoreCaseAndIsbn13IsNull(request.title().trim())
+                            .map(existing -> updateMissingBookMasterFields(existing, request, isbn13)))
                     .orElseGet(() -> createManualBookMaster(request, isbn13));
         }
         return createManualBookMaster(request, null);
+    }
+
+    private BookMaster updateMissingBookMasterFields(BookMaster bookMaster, CreateBookRequest request, String isbn13) {
+        boolean updated = false;
+
+        if (!StringUtils.hasText(bookMaster.getIsbn13()) && StringUtils.hasText(isbn13)) {
+            bookMaster.setIsbn13(isbn13);
+            updated = true;
+        }
+        if (!StringUtils.hasText(bookMaster.getIsbn10())) {
+            String isbn10 = null;
+            if (StringUtils.hasText(request.isbn10())) {
+                isbn10 = request.isbn10().trim().toUpperCase(Locale.ROOT);
+            } else if (StringUtils.hasText(isbn13)) {
+                isbn10 = isbnNormalizer.toIsbn10(isbn13).orElse(null);
+            }
+            if (StringUtils.hasText(isbn10)) {
+                bookMaster.setIsbn10(isbn10);
+                updated = true;
+            }
+        }
+        if (!StringUtils.hasText(bookMaster.getSubtitle()) && StringUtils.hasText(request.subtitle())) {
+            bookMaster.setSubtitle(request.subtitle());
+            updated = true;
+        }
+        if ((bookMaster.getAuthorsJson() == null || bookMaster.getAuthorsJson().isEmpty())
+                && request.authors() != null && !request.authors().isEmpty()) {
+            bookMaster.setAuthorsJson(request.authors());
+            updated = true;
+        }
+        if (!StringUtils.hasText(bookMaster.getPublisher()) && StringUtils.hasText(request.publisher())) {
+            bookMaster.setPublisher(request.publisher());
+            updated = true;
+        }
+        if (bookMaster.getPublishedDate() == null && request.publishedDate() != null) {
+            bookMaster.setPublishedDate(request.publishedDate());
+            updated = true;
+        }
+        if (!StringUtils.hasText(bookMaster.getDescription()) && StringUtils.hasText(request.description())) {
+            bookMaster.setDescription(request.description());
+            updated = true;
+        }
+        String thumbnailUrl = bookCoverService.resolveThumbnailUrl(isbn13, request.thumbnailUrl());
+        if (!StringUtils.hasText(bookMaster.getThumbnailUrl()) && StringUtils.hasText(thumbnailUrl)) {
+            bookMaster.setThumbnailUrl(thumbnailUrl);
+            updated = true;
+        }
+
+        if (!updated) {
+            return bookMaster;
+        }
+        bookMaster.setSourceLastFetchedAt(OffsetDateTime.now());
+        return bookMasterRepository.save(bookMaster);
     }
 
     private BookMaster createManualBookMaster(CreateBookRequest request, String isbn13) {
@@ -267,7 +351,7 @@ public class BookService {
         bookMaster.setPublisher(request.publisher());
         bookMaster.setPublishedDate(request.publishedDate());
         bookMaster.setDescription(request.description());
-        bookMaster.setThumbnailUrl(request.thumbnailUrl());
+        bookMaster.setThumbnailUrl(bookCoverService.resolveThumbnailUrl(isbn13, request.thumbnailUrl()));
         bookMaster.setSourcePrimary(SourceName.MANUAL);
         bookMaster.setSourceLastFetchedAt(OffsetDateTime.now());
         return bookMasterRepository.save(bookMaster);
@@ -287,12 +371,6 @@ public class BookService {
         bookMaster.setSourcePrimary(metadata.sourceName());
         bookMaster.setSourceLastFetchedAt(OffsetDateTime.now());
         return bookMasterRepository.save(bookMaster);
-    }
-
-    private void ensureNotDuplicated(Long userId, Long bookMasterId) {
-        if (userBookRepository.existsByUser_IdAndBookMaster_IdAndDeletedAtIsNull(userId, bookMasterId)) {
-            throw new DuplicateException("BOOK-409", "Book already registered for current user");
-        }
     }
 
     private void replaceTags(UserBook userBook, Long userId, List<Long> tagIds) {

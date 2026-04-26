@@ -11,6 +11,12 @@ docker compose up -d
 # Run the application
 mvn spring-boot:run
 
+# Install frontend dependencies (first time only)
+cd frontend && npm install
+
+# Run the frontend dev server (http://localhost:5173)
+cd frontend && npm run dev
+
 # Build
 mvn clean install
 

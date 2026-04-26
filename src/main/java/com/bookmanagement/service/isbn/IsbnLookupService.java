@@ -8,6 +8,7 @@ import com.bookmanagement.domain.enums.SourceName;
 import com.bookmanagement.dto.isbn.IsbnLookupCandidateResponse;
 import com.bookmanagement.dto.isbn.IsbnLookupResponse;
 import com.bookmanagement.repository.IsbnLookupCacheRepository;
+import com.bookmanagement.service.book.BookCoverService;
 import com.bookmanagement.service.isbn.provider.GoogleBooksProvider;
 import com.bookmanagement.service.isbn.provider.OpenBdProvider;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -29,6 +30,7 @@ public class IsbnLookupService {
     private final IsbnNormalizer isbnNormalizer;
     private final ObjectMapper objectMapper;
     private final AppProperties appProperties;
+    private final BookCoverService bookCoverService;
 
     @Transactional
     public IsbnLookupResponse lookup(String rawIsbn, boolean forceReload) {
@@ -51,8 +53,9 @@ public class IsbnLookupService {
 
             Optional<BookMetadata> fetched = lookup.provider().lookup(normalizedIsbn13);
             if (fetched.isPresent()) {
-                saveCache(normalizedIsbn13, lookup.sourceName(), 200, fetched.get());
-                return toLookupResponse(normalizedIsbn13, fetched.get());
+                BookMetadata metadata = bookCoverService.withFallbackCover(fetched.get());
+                saveCache(normalizedIsbn13, lookup.sourceName(), 200, metadata);
+                return toLookupResponse(normalizedIsbn13, metadata);
             }
             saveCache(normalizedIsbn13, lookup.sourceName(), 404, null);
         }
@@ -126,18 +129,19 @@ public class IsbnLookupService {
     }
 
     private IsbnLookupResponse toLookupResponse(String queryIsbn, BookMetadata metadata) {
+        BookMetadata enrichedMetadata = bookCoverService.withFallbackCover(metadata);
         IsbnLookupCandidateResponse candidate = new IsbnLookupCandidateResponse(
-                metadata.isbn13(),
-                metadata.isbn10(),
-                metadata.title(),
-                metadata.subtitle(),
-                metadata.authors(),
-                metadata.publisher(),
-                metadata.publishedDate(),
-                metadata.thumbnailUrl(),
-                metadata.description(),
-                metadata.sourceName(),
-                metadata.cacheHit()
+                enrichedMetadata.isbn13(),
+                enrichedMetadata.isbn10(),
+                enrichedMetadata.title(),
+                enrichedMetadata.subtitle(),
+                enrichedMetadata.authors(),
+                enrichedMetadata.publisher(),
+                enrichedMetadata.publishedDate(),
+                enrichedMetadata.thumbnailUrl(),
+                enrichedMetadata.description(),
+                enrichedMetadata.sourceName(),
+                enrichedMetadata.cacheHit()
         );
         return new IsbnLookupResponse(queryIsbn, List.of(candidate));
     }

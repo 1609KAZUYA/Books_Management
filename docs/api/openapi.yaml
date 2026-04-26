@@ -119,6 +119,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /books/external-search:
+    get:
+      tags: [Books]
+      summary: Search external book metadata
+      parameters:
+        - in: query
+          name: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - in: query
+          name: type
+          schema:
+            $ref: '#/components/schemas/ExternalBookSearchType'
+        - in: query
+          name: maxResults
+          schema: { type: integer, minimum: 1, maximum: 40, default: 10 }
+      responses:
+        '200':
+          description: External book candidates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalBookSearchResponse'
   /books/import-by-isbn:
     post:
       tags: [Books, ISBN]
@@ -310,6 +333,9 @@ components:
     BookStatus:
       type: string
       enum: [WISHLIST, PURCHASED, READING, FINISHED, ON_HOLD, DROPPED, TSUNDOKU]
+    ExternalBookSearchType:
+      type: string
+      enum: [KEYWORD, TITLE, AUTHOR, ISBN]
     LoginRequest:
       type: object
       required: [email, password]
@@ -486,6 +512,31 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/IsbnLookupCandidate'
+    ExternalBookSearchCandidate:
+      type: object
+      required: [title, sourceName]
+      properties:
+        isbn13: { type: string, nullable: true }
+        isbn10: { type: string, nullable: true }
+        title: { type: string }
+        subtitle: { type: string, nullable: true }
+        authors: { type: array, items: { type: string } }
+        publisher: { type: string, nullable: true }
+        publishedDate: { type: string, format: date, nullable: true }
+        thumbnailUrl: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        sourceName: { type: string, enum: [GOOGLE_BOOKS] }
+    ExternalBookSearchResponse:
+      type: object
+      required: [query, type, candidates]
+      properties:
+        query: { type: string }
+        type:
+          $ref: '#/components/schemas/ExternalBookSearchType'
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalBookSearchCandidate'
     ApiError:
       type: object
       required: [code, message, requestId]

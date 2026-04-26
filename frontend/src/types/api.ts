@@ -1,0 +1,198 @@
+export type BookStatus =
+  | 'WISHLIST'
+  | 'PURCHASED'
+  | 'READING'
+  | 'FINISHED'
+  | 'ON_HOLD'
+  | 'DROPPED'
+  | 'TSUNDOKU'
+
+export type UserRole = 'USER' | 'ADMIN'
+
+export type SourceName = 'OPENBD' | 'GOOGLE_BOOKS' | 'MANUAL'
+
+export type ExternalBookSearchType = 'KEYWORD' | 'TITLE' | 'AUTHOR' | 'ISBN'
+
+export const BOOK_STATUS_LABELS: Record<BookStatus, string> = {
+  WISHLIST: '欲しい',
+  PURCHASED: '購入済み',
+  READING: '読書中',
+  FINISHED: '読了',
+  ON_HOLD: '保留',
+  DROPPED: '中断',
+  TSUNDOKU: '積読',
+}
+
+export interface MeResponse {
+  id: number
+  email: string
+  displayName: string
+  role: UserRole
+}
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface LoginResponse {
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+  user: MeResponse
+}
+
+export interface Tag {
+  id: number
+  name: string
+  colorHex?: string | null
+  sortOrder: number
+}
+
+export interface BookMasterSummary {
+  id?: number
+  isbn13?: string | null
+  isbn10?: string | null
+  title: string
+  subtitle?: string | null
+  authors: string[]
+  publisher?: string | null
+  publishedDate?: string | null
+  thumbnailUrl?: string | null
+  sourcePrimary: SourceName
+}
+
+export interface BookListItem {
+  id: number
+  status: BookStatus
+  rating?: number | null
+  favoriteFlag: boolean
+  purchaseDate?: string | null
+  startDate?: string | null
+  finishDate?: string | null
+  updatedAt: string
+  tags: Tag[]
+  bookMaster: BookMasterSummary
+}
+
+export interface UserBookDetail extends BookListItem {
+  memo?: string | null
+  locationNote?: string | null
+  createdAt: string
+  deletedAt?: string | null
+}
+
+export interface PaginationMeta {
+  page: number
+  size: number
+  totalItems: number
+  totalPages: number
+}
+
+export interface BookListResponse {
+  items: BookListItem[]
+  meta: PaginationMeta
+}
+
+export interface CreateBookRequest {
+  isbn13?: string | null
+  isbn10?: string | null
+  title: string
+  subtitle?: string | null
+  authors?: string[]
+  publisher?: string | null
+  publishedDate?: string | null
+  description?: string | null
+  thumbnailUrl?: string | null
+  status: BookStatus
+  rating?: number | null
+  favoriteFlag?: boolean
+  memo?: string | null
+  tagIds?: number[]
+}
+
+export interface ImportByIsbnRequest {
+  isbn: string
+  status: BookStatus
+  memo?: string | null
+  tagIds?: number[]
+}
+
+export interface UpdateBookRequest {
+  status?: BookStatus
+  rating?: number | null
+  favoriteFlag?: boolean
+  purchaseDate?: string | null
+  startDate?: string | null
+  finishDate?: string | null
+  memo?: string | null
+  locationNote?: string | null
+  tagIds?: number[]
+}
+
+export interface UpdateStatusRequest {
+  status: BookStatus
+  startDate?: string | null
+  finishDate?: string | null
+}
+
+export interface CreateTagRequest {
+  name: string
+  colorHex?: string | null
+  sortOrder?: number
+}
+
+export interface UpdateTagRequest {
+  name?: string
+  colorHex?: string | null
+  sortOrder?: number
+}
+
+export interface TagListResponse {
+  items: Tag[]
+}
+
+export interface IsbnLookupCandidate {
+  isbn13: string
+  isbn10?: string | null
+  title: string
+  subtitle?: string | null
+  authors: string[]
+  publisher?: string | null
+  publishedDate?: string | null
+  thumbnailUrl?: string | null
+  description?: string | null
+  sourceName: SourceName
+  cacheHit: boolean
+}
+
+export interface IsbnLookupResponse {
+  queryIsbn: string
+  candidates: IsbnLookupCandidate[]
+}
+
+export interface ExternalBookSearchCandidate {
+  isbn13?: string | null
+  isbn10?: string | null
+  title: string
+  subtitle?: string | null
+  authors: string[]
+  publisher?: string | null
+  publishedDate?: string | null
+  thumbnailUrl?: string | null
+  description?: string | null
+  sourceName: SourceName
+}
+
+export interface ExternalBookSearchResponse {
+  query: string
+  type: ExternalBookSearchType
+  candidates: ExternalBookSearchCandidate[]
+}
+
+export interface ApiError {
+  code: string
+  message: string
+  requestId: string
+  details?: string[]
+}

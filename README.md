@@ -1,50 +1,81 @@
-# Book Management (Java / Spring Boot)
+# Books Memo
 
-Excel/PDF の設計書をもとに、Books Memo のバックエンド土台を作成したリポジトリです。
+個人向け読書トラッカーアプリ。Spring Boot (Java 21) バックエンド + Vite/React/TypeScript フロントエンドの構成。
 
-## 1. 構成
+## 構成
 
-- `src/main/resources/db/migration/V1__init_schema.sql`: 設計書準拠 DDL
-- `docs/api/openapi.yaml`: 設計書準拠 OpenAPI
-- `src/main/java/com/bookmanagement`: Spring Boot API 実装
+```
+BookManagement/
+├── src/                  # Spring Boot バックエンド (ポート 8080)
+├── frontend/             # Vite + React + TypeScript (ポート 5173)
+├── docker-compose.yml    # PostgreSQL 16
+└── docs/api/openapi.yaml # OpenAPI 仕様
+```
 
-主なAPI:
+## 起動手順
 
-- `POST /api/v1/auth/login`
-- `GET /api/v1/me`
-- `GET /api/v1/books`
-- `POST /api/v1/books`
-- `POST /api/v1/books/import-by-isbn`
-- `GET /api/v1/isbn/{isbn}`
-- `GET/POST/PATCH/DELETE /api/v1/tags...`
+### 前提
 
-## 2. 起動手順
+- Docker Desktop
+- Java 21 + Maven
+- Node.js 18+
 
-1. PostgreSQL 起動
+### 1. PostgreSQL 起動
 
 ```bash
 docker compose up -d
 ```
 
-2. Java アプリ起動
+### 2. バックエンド起動
 
 ```bash
 mvn spring-boot:run
 ```
 
-## 3. 環境変数
+API: `http://localhost:8080/api/v1`
 
-- `DB_URL` (default: `jdbc:postgresql://localhost:5432/book_management`)
-- `DB_USER` (default: `book_user`)
-- `DB_PASSWORD` (default: `book_pass`)
-- `DEFAULT_USER_EMAIL` (default: `demo@example.com`)
-- `OPENBD_URL` (default: `https://openbd.jp/get`)
-- `GOOGLE_BOOKS_URL` (default: `https://www.googleapis.com/books/v1/volumes`)
-- `ISBN_CACHE_TTL` (default: `P7D`)
+### 3. フロントエンド起動（別ターミナル）
 
-## 4. 備考
+```bash
+cd frontend
+npm install   # 初回のみ
+npm run dev
+```
 
-- 本実装は MVP 開発開始用のベースです。
-- 認証は開発向け簡易実装です（設計書どおりの JWT 本実装は次フェーズで拡張可能）。
-- ISBN 取得は `openBD -> Google Books fallback` を実装済みです。
-# Books_Management
+UI: `http://localhost:5173`
+
+### デモアカウント
+
+| 項目 | 値 |
+|---|---|
+| メールアドレス | demo@example.com |
+| パスワード | demo1234 |
+
+> 初回起動時にデモユーザーのパスワードが自動でセットされます。
+
+---
+
+## 主な API エンドポイント
+
+| Method | Path | 説明 |
+|---|---|---|
+| POST | `/api/v1/auth/login` | ログイン（JWT 発行） |
+| GET | `/api/v1/me` | 現在のユーザー情報 |
+| GET | `/api/v1/books` | 本一覧（検索・フィルター・ページング） |
+| POST | `/api/v1/books` | 手動で本を登録 |
+| POST | `/api/v1/books/import-by-isbn` | ISBN で本を取り込み |
+| GET | `/api/v1/isbn/{isbn}` | ISBN 検索（登録なし） |
+| GET/POST | `/api/v1/tags` | タグ一覧・作成 |
+
+## 環境変数（デフォルト値あり）
+
+| 変数名 | デフォルト | 説明 |
+|---|---|---|
+| `DB_URL` | `jdbc:postgresql://localhost:5432/book_management` | PostgreSQL 接続先 |
+| `DB_USER` | `book_user` | DB ユーザー |
+| `DB_PASSWORD` | `book_pass` | DB パスワード |
+| `JWT_SECRET` | （開発用デフォルト値） | JWT 署名キー（本番では必ず変更） |
+| `JWT_EXPIRY_SECONDS` | `86400` | トークン有効期限（秒） |
+| `OPENBD_URL` | `https://api.openbd.jp/v1/get` | OpenBD API |
+| `GOOGLE_BOOKS_URL` | `https://www.googleapis.com/books/v1/volumes` | Google Books API |
+| `ISBN_CACHE_TTL` | `P7D` | ISBN キャッシュ TTL |

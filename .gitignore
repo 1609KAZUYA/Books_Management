@@ -1,5 +1,7 @@
 # Build outputs
 /target/
+/frontend/dist/
+/frontend/node_modules/
 
 # IDE
 /.idea/
