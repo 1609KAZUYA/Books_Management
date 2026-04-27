@@ -389,7 +389,7 @@ function StatStrip({
         flexWrap: 'wrap',
       }}
     >
-      <Stat label="冊登録中" value={total} valueColor={EDITORIAL.ink} />
+      <Stat label="登録冊数" value={total} valueColor={EDITORIAL.ink} />
       <Divider />
       <Stat label="読了" value={finished} valueColor={STATUS_INK.FINISHED} italic />
       <Divider />

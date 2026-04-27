@@ -202,7 +202,7 @@ function ExternalSearchTab({
       onCreated(book.id)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setSaveError(msg ?? '登録に失敗しました')
+      setSaveError(msg ?? '追加に失敗しました')
     } finally {
       setSavingKey('')
     }
@@ -307,7 +307,7 @@ function ExternalSearchTab({
                     disabled={savingKey !== ''}
                     className="self-start bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {savingKey === key ? '登録中...' : '追加'}
+                    {savingKey === key ? '追加中...' : '追加'}
                   </button>
                 </div>
               </div>
@@ -438,7 +438,7 @@ function IsbnTab({
       onCreated(book.id)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setSaveError(msg ?? '登録に失敗しました')
+      setSaveError(msg ?? '追加に失敗しました')
     } finally {
       setSaving(false)
     }
@@ -528,7 +528,7 @@ function IsbnTab({
             disabled={saving}
             className="w-full bg-blue-600 text-white py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? '登録中...' : '本棚に追加'}
+            {saving ? '追加中...' : '本棚に追加'}
           </button>
         </div>
       )}
@@ -572,7 +572,7 @@ function ManualTab({
       onCreated(book.id)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(msg ?? '登録に失敗しました')
+      setError(msg ?? '追加に失敗しました')
     } finally {
       setSaving(false)
     }
@@ -666,7 +666,7 @@ function ManualTab({
         disabled={saving}
         className="w-full bg-blue-600 text-white py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
       >
-        {saving ? '登録中...' : '本棚に追加'}
+        {saving ? '追加中...' : '本棚に追加'}
       </button>
     </form>
   )

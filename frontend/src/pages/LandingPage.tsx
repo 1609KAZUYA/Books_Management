@@ -74,7 +74,7 @@ export default function LandingPage() {
             </span>
           </div>
           <nav style={{ display: 'flex', gap: 36, fontSize: 14, color: C.inkSoft }}>
-            {['Features 機能', 'How it works 使い方', 'Pricing 料金', 'Log in ログイン'].map(
+            {['Features 機能', 'How it works 使い方', 'Log in ログイン'].map(
               (t) => (
                 <a
                   key={t}
@@ -107,7 +107,7 @@ export default function LandingPage() {
               transition: 'all 0.25s ease',
             }}
           >
-            無料で始める →
+            無料ではじめる →
           </button>
         </header>
 
@@ -145,8 +145,8 @@ export default function LandingPage() {
                   margin: '0 0 36px',
                 }}
               >
-                <span style={{ fontStyle: 'italic', fontWeight: 300 }}>積</span>
-                ん読も、
+                <span style={{ fontStyle: 'italic', fontWeight: 300 }}>積読</span>
+                も、
                 <br />
                 <span style={{ fontStyle: 'italic', fontWeight: 300 }}>読</span>
                 みかけも、
@@ -227,8 +227,8 @@ export default function LandingPage() {
           >
             {(
               [
-                ['247', '冊登録中', 'BOOKS LOGGED'],
-                ['12', 'カテゴリ', 'CATEGORIES'],
+                ['247', '登録冊数', 'BOOKS LOGGED'],
+                ['12', 'カテゴリー', 'CATEGORIES'],
                 ['38', '今月の読了', 'FINISHED THIS MONTH'],
                 ['∞', '可能性', 'POSSIBILITIES'],
               ] as const
@@ -350,7 +350,7 @@ export default function LandingPage() {
               lineHeight: 1.7,
             }}
           >
-            無料で使い始められます。クレジットカード不要、いつでも退会できます。
+            無料ではじめられます。クレジットカード不要で、登録後すぐに本棚を作成できます。
           </p>
           <button
             type="button"
@@ -371,7 +371,7 @@ export default function LandingPage() {
               transition: 'all 0.3s ease',
             }}
           >
-            無料で始める  Start free  →
+            無料ではじめる  Start free  →
           </button>
         </section>
 

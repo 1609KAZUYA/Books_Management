@@ -44,8 +44,8 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="bg-white rounded-lg shadow p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2 text-center">アカウント作成</h1>
-        <p className="text-sm text-gray-500 mb-6 text-center">Books Memoをはじめる</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2 text-center">新規登録</h1>
+        <p className="text-sm text-gray-500 mb-6 text-center">Books Memo をはじめる</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

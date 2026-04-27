@@ -80,12 +80,36 @@ BEFORE UPDATE ON app.book_master
 FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
 
 -- ------------------------------------------------------------
+-- categories
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS app.categories (
+    id               BIGSERIAL PRIMARY KEY,
+    user_id          BIGINT NOT NULL REFERENCES app.users(id),
+    name             VARCHAR(50) NOT NULL,
+    color_hex        CHAR(7) NULL CHECK (color_hex IS NULL OR color_hex ~ '^#[0-9A-Fa-f]{6}$'),
+    sort_order       INTEGER NOT NULL DEFAULT 0,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_categories_user_name
+    ON app.categories (user_id, name);
+
+CREATE INDEX IF NOT EXISTS idx_categories_user_sort
+    ON app.categories (user_id, sort_order, id);
+
+CREATE TRIGGER trg_categories_updated_at
+BEFORE UPDATE ON app.categories
+FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+
+-- ------------------------------------------------------------
 -- user_book
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS app.user_book (
     id               BIGSERIAL PRIMARY KEY,
     user_id          BIGINT NOT NULL REFERENCES app.users(id),
     book_master_id   BIGINT NOT NULL REFERENCES app.book_master(id),
+    category_id      BIGINT NULL REFERENCES app.categories(id) ON DELETE SET NULL,
     status           VARCHAR(30) NOT NULL
                      CHECK (status IN ('WISHLIST', 'PURCHASED', 'READING', 'FINISHED', 'ON_HOLD', 'DROPPED', 'TSUNDOKU')),
     rating           NUMERIC(2,1) NULL
@@ -119,48 +143,13 @@ CREATE INDEX IF NOT EXISTS idx_user_book_user_dates
     ON app.user_book (user_id, start_date, finish_date)
     WHERE deleted_at IS NULL;
 
+CREATE INDEX IF NOT EXISTS idx_user_book_category
+    ON app.user_book (user_id, category_id, updated_at DESC)
+    WHERE deleted_at IS NULL;
+
 CREATE TRIGGER trg_user_book_updated_at
 BEFORE UPDATE ON app.user_book
 FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
-
--- ------------------------------------------------------------
--- tags
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS app.tags (
-    id               BIGSERIAL PRIMARY KEY,
-    user_id          BIGINT NOT NULL REFERENCES app.users(id),
-    name             VARCHAR(50) NOT NULL,
-    color_hex        CHAR(7) NULL CHECK (color_hex IS NULL OR color_hex ~ '^#[0-9A-Fa-f]{6}$'),
-    sort_order       INTEGER NOT NULL DEFAULT 0,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS uq_tags_user_name
-    ON app.tags (user_id, name);
-
-CREATE INDEX IF NOT EXISTS idx_tags_user_sort
-    ON app.tags (user_id, sort_order, id);
-
-CREATE TRIGGER trg_tags_updated_at
-BEFORE UPDATE ON app.tags
-FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
-
--- ------------------------------------------------------------
--- user_book_tag
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS app.user_book_tag (
-    id               BIGSERIAL PRIMARY KEY,
-    user_book_id     BIGINT NOT NULL REFERENCES app.user_book(id) ON DELETE CASCADE,
-    tag_id           BIGINT NOT NULL REFERENCES app.tags(id) ON DELETE CASCADE,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS uq_user_book_tag
-    ON app.user_book_tag (user_book_id, tag_id);
-
-CREATE INDEX IF NOT EXISTS idx_user_book_tag_tag_id
-    ON app.user_book_tag (tag_id, user_book_id);
 
 -- ------------------------------------------------------------
 -- isbn_lookup_cache
