@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createBook, searchExternalBooks } from '../api/books'
+import { getCategories } from '../api/categories'
 import { lookupIsbn } from '../api/isbn'
 import { getTags } from '../api/tags'
 import type {
   BookStatus,
+  Category,
   ExternalBookSearchCandidate,
   ExternalBookSearchType,
   IsbnLookupCandidate,
@@ -26,9 +28,11 @@ const EXTERNAL_SEARCH_PAGE_SIZE = 12
 export default function BookNewPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<TabType>('search')
+  const [categories, setCategories] = useState<Category[]>([])
   const [tags, setTags] = useState<Tag[]>([])
 
   useEffect(() => {
+    getCategories().then(setCategories).catch(() => {})
     getTags().then(setTags).catch(() => {})
   }, [])
 
@@ -78,11 +82,11 @@ export default function BookNewPage() {
 
         <div className="p-6">
           {tab === 'search' ? (
-            <ExternalSearchTab tags={tags} onCreated={(id) => navigate(`/books/${id}`)} />
+            <ExternalSearchTab categories={categories} tags={tags} onCreated={(id) => navigate(`/books/${id}`)} />
           ) : tab === 'isbn' ? (
-            <IsbnTab tags={tags} onCreated={(id) => navigate(`/books/${id}`)} />
+            <IsbnTab categories={categories} tags={tags} onCreated={(id) => navigate(`/books/${id}`)} />
           ) : (
-            <ManualTab tags={tags} onCreated={(id) => navigate(`/books/${id}`)} />
+            <ManualTab categories={categories} tags={tags} onCreated={(id) => navigate(`/books/${id}`)} />
           )}
         </div>
       </div>
@@ -90,7 +94,15 @@ export default function BookNewPage() {
   )
 }
 
-function ExternalSearchTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: number) => void }) {
+function ExternalSearchTab({
+  categories,
+  tags,
+  onCreated,
+}: {
+  categories: Category[]
+  tags: Tag[]
+  onCreated: (id: number) => void
+}) {
   const [query, setQuery] = useState('')
   const [type, setType] = useState<ExternalBookSearchType>('KEYWORD')
   const [searching, setSearching] = useState(false)
@@ -102,6 +114,7 @@ function ExternalSearchTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: n
   const [hasMore, setHasMore] = useState(false)
   const [nextStartIndex, setNextStartIndex] = useState(0)
   const [status, setStatus] = useState<BookStatus>('WISHLIST')
+  const [categoryId, setCategoryId] = useState<number | ''>('')
   const [memo, setMemo] = useState('')
   const [tagIds, setTagIds] = useState<number[]>([])
   const [savingKey, setSavingKey] = useState('')
@@ -190,6 +203,7 @@ function ExternalSearchTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: n
         isbn13,
         isbn10,
         status,
+        categoryId: categoryId ? Number(categoryId) : null,
         memo: memo || null,
         tagIds,
       })
@@ -251,6 +265,7 @@ function ExternalSearchTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: n
                 ))}
               </select>
             </div>
+            <CategorySelect categories={categories} value={categoryId} onChange={setCategoryId} />
           </div>
 
           {tags.length > 0 && (
@@ -371,12 +386,47 @@ function canLoadAnotherExternalSearchPage(type: ExternalBookSearchType, fetchedC
   return type !== 'ISBN' && fetchedCount > 0
 }
 
-function IsbnTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: number) => void }) {
+function CategorySelect({
+  categories,
+  value,
+  onChange,
+}: {
+  categories: Category[]
+  value: number | ''
+  onChange: (value: number | '') => void
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-1">カテゴリー</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
+        className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="">未分類</option>
+        {categories.map((category) => (
+          <option key={category.id} value={category.id}>{category.name}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+function IsbnTab({
+  categories,
+  tags,
+  onCreated,
+}: {
+  categories: Category[]
+  tags: Tag[]
+  onCreated: (id: number) => void
+}) {
   const [isbn, setIsbn] = useState('')
   const [searching, setSearching] = useState(false)
   const [candidate, setCandidate] = useState<IsbnLookupCandidate | null>(null)
   const [searchError, setSearchError] = useState('')
   const [status, setStatus] = useState<BookStatus>('WISHLIST')
+  const [categoryId, setCategoryId] = useState<number | ''>('')
   const [memo, setMemo] = useState('')
   const [tagIds, setTagIds] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
@@ -420,6 +470,7 @@ function IsbnTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: number) => 
         isbn13,
         isbn10,
         status,
+        categoryId: categoryId ? Number(categoryId) : null,
         memo: memo || null,
         tagIds,
       })
@@ -499,6 +550,7 @@ function IsbnTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: number) => 
                 ))}
               </select>
             </div>
+            <CategorySelect categories={categories} value={categoryId} onChange={setCategoryId} />
           </div>
 
           {tags.length > 0 && (
@@ -550,13 +602,22 @@ function IsbnTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: number) => 
   )
 }
 
-function ManualTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: number) => void }) {
+function ManualTab({
+  categories,
+  tags,
+  onCreated,
+}: {
+  categories: Category[]
+  tags: Tag[]
+  onCreated: (id: number) => void
+}) {
   const [title, setTitle] = useState('')
   const [authors, setAuthors] = useState('')
   const [publisher, setPublisher] = useState('')
   const [publishedDate, setPublishedDate] = useState('')
   const [isbn13, setIsbn13] = useState('')
   const [status, setStatus] = useState<BookStatus>('WISHLIST')
+  const [categoryId, setCategoryId] = useState<number | ''>('')
   const [memo, setMemo] = useState('')
   const [tagIds, setTagIds] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
@@ -574,6 +635,7 @@ function ManualTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: number) =
         publishedDate: publishedDate || null,
         isbn13: isbn13 || null,
         status,
+        categoryId: categoryId ? Number(categoryId) : null,
         memo: memo || null,
         tagIds,
       })
@@ -657,6 +719,7 @@ function ManualTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: number) =
             ))}
           </select>
         </div>
+        <CategorySelect categories={categories} value={categoryId} onChange={setCategoryId} />
       </div>
 
       {tags.length > 0 && (

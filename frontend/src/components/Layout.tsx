@@ -40,6 +40,14 @@ export default function Layout() {
             >
               タグ
             </NavLink>
+            <NavLink
+              to="/categories"
+              className={({ isActive }) =>
+                `text-sm font-medium ${isActive ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'}`
+              }
+            >
+              カテゴリー
+            </NavLink>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-500">{user?.displayName}</span>

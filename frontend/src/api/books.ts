@@ -18,6 +18,8 @@ import type {
 export interface SearchBooksParams {
   keyword?: string
   status?: BookStatus
+  categoryId?: number
+  uncategorized?: boolean
   tagId?: number
   favorite?: boolean
   sort?: string

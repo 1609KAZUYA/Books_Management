@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { searchBooks } from '../api/books'
+import { getCategories } from '../api/categories'
 import { getTags } from '../api/tags'
-import type { BookListItem, BookStatus, PaginationMeta, Tag } from '../types/api'
+import type { BookListItem, BookStatus, Category, PaginationMeta, Tag } from '../types/api'
 import { BOOK_STATUS_LABELS } from '../types/api'
 import BookStatusBadge from '../components/BookStatusBadge'
 import BookCoverImage from '../components/BookCoverImage'
@@ -17,27 +18,39 @@ const SORT_OPTIONS = [
 ]
 
 export default function BookListPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [books, setBooks] = useState<BookListItem[]>([])
   const [meta, setMeta] = useState<PaginationMeta | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
   const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(false)
 
   const [keyword, setKeyword] = useState('')
   const [inputKeyword, setInputKeyword] = useState('')
   const [status, setStatus] = useState<BookStatus | ''>('')
+  const [categoryFilter, setCategoryFilter] = useState(searchParams.get('uncategorized') ? 'uncategorized' : searchParams.get('categoryId') ?? '')
   const [tagId, setTagId] = useState<number | ''>('')
   const [sort, setSort] = useState('updatedAtDesc')
   const [page, setPage] = useState(1)
 
   useEffect(() => {
+    getCategories().then(setCategories).catch(() => {})
     getTags().then(setTags).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const nextCategory = searchParams.get('uncategorized') ? 'uncategorized' : searchParams.get('categoryId') ?? ''
+    setCategoryFilter(nextCategory)
+    setPage(1)
+  }, [searchParams])
 
   useEffect(() => {
     setLoading(true)
     searchBooks({
       keyword: keyword || undefined,
       status: (status as BookStatus) || undefined,
+      categoryId: categoryFilter && categoryFilter !== 'uncategorized' ? Number(categoryFilter) : undefined,
+      uncategorized: categoryFilter === 'uncategorized' ? true : undefined,
       tagId: tagId ? Number(tagId) : undefined,
       sort,
       page,
@@ -49,7 +62,7 @@ export default function BookListPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [keyword, status, tagId, sort, page])
+  }, [keyword, status, categoryFilter, tagId, sort, page])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,10 +74,37 @@ export default function BookListPage() {
     setPage(1)
   }
 
+  const handleCategoryChange = (value: string) => {
+    setCategoryFilter(value)
+    setPage(1)
+    const next = new URLSearchParams(searchParams)
+    next.delete('categoryId')
+    next.delete('uncategorized')
+    if (value === 'uncategorized') {
+      next.set('uncategorized', '1')
+    } else if (value) {
+      next.set('categoryId', value)
+    }
+    setSearchParams(next, { replace: true })
+  }
+
+  const activeCategory = categoryFilter && categoryFilter !== 'uncategorized'
+    ? categories.find((category) => category.id === Number(categoryFilter))
+    : null
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-gray-900">本棚</h1>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">
+            {categoryFilter === 'uncategorized' ? '未分類の本' : activeCategory ? `${activeCategory.name}の本` : '本棚'}
+          </h1>
+          {(categoryFilter || activeCategory) && (
+            <Link to="/books" className="text-xs text-gray-500 hover:text-gray-900">
+              すべての本棚に戻る
+            </Link>
+          )}
+        </div>
         <Link
           to="/books/new"
           className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
@@ -99,6 +139,17 @@ export default function BookListPage() {
             <option value="">すべてのステータス</option>
             {(Object.keys(BOOK_STATUS_LABELS) as BookStatus[]).map((s) => (
               <option key={s} value={s}>{BOOK_STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+          <select
+            value={categoryFilter}
+            onChange={(e) => handleCategoryChange(e.target.value)}
+            className="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">すべてのカテゴリー</option>
+            <option value="uncategorized">未分類</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>{category.name}</option>
             ))}
           </select>
           <select
@@ -180,6 +231,14 @@ function BookCard({ book }: { book: BookListItem }) {
       />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-gray-900 line-clamp-2">{bm.title}</p>
+        {book.category && (
+          <span
+            className="inline-block mt-1 px-2 py-0.5 rounded text-xs text-gray-700"
+            style={{ backgroundColor: book.category.colorHex ?? '#e5e7eb' }}
+          >
+            {book.category.name}
+          </span>
+        )}
         {bm.authors.length > 0 && (
           <p className="text-xs text-gray-500 mt-0.5 truncate">{bm.authors.join(', ')}</p>
         )}

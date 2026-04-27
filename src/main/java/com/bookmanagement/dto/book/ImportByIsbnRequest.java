@@ -10,6 +10,7 @@ public record ImportByIsbnRequest(
         @NotBlank String isbn,
         @NotNull BookStatus status,
         @Size(max = 10000) String memo,
+        Long categoryId,
         List<Long> tagIds
 ) {
 }
