@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { deleteBook, getBook, updateBook, updateStatus } from '../api/books'
+import { getCategories } from '../api/categories'
 import { getTags } from '../api/tags'
-import type { BookStatus, Tag, UpdateBookRequest, UserBookDetail } from '../types/api'
+import type { BookStatus, Category, Tag, UpdateBookRequest, UserBookDetail } from '../types/api'
 import { BOOK_STATUS_LABELS } from '../types/api'
 import BookStatusBadge from '../components/BookStatusBadge'
 import BookCoverImage from '../components/BookCoverImage'
@@ -12,6 +13,7 @@ export default function BookDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [book, setBook] = useState<UserBookDetail | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
   const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -24,15 +26,17 @@ export default function BookDetailPage() {
   const [editFavorite, setEditFavorite] = useState(false)
   const [editMemo, setEditMemo] = useState('')
   const [editLocationNote, setEditLocationNote] = useState('')
+  const [editCategoryId, setEditCategoryId] = useState<number | ''>('')
   const [editTagIds, setEditTagIds] = useState<number[]>([])
   const [editPurchaseDate, setEditPurchaseDate] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
   const [editFinishDate, setEditFinishDate] = useState('')
 
   useEffect(() => {
-    Promise.all([getBook(Number(id)), getTags()])
-      .then(([bookData, tagsData]) => {
+    Promise.all([getBook(Number(id)), getCategories(), getTags()])
+      .then(([bookData, categoryData, tagsData]) => {
         setBook(bookData)
+        setCategories(categoryData)
         setTags(tagsData)
         resetForm(bookData)
       })
@@ -46,6 +50,7 @@ export default function BookDetailPage() {
     setEditFavorite(b.favoriteFlag)
     setEditMemo(b.memo ?? '')
     setEditLocationNote(b.locationNote ?? '')
+    setEditCategoryId(b.category?.id ?? '')
     setEditTagIds(b.tags.map((t) => t.id))
     setEditPurchaseDate(b.purchaseDate ?? '')
     setEditStartDate(b.startDate ?? '')
@@ -63,6 +68,7 @@ export default function BookDetailPage() {
         favoriteFlag: editFavorite,
         memo: editMemo || null,
         locationNote: editLocationNote || null,
+        categoryId: editCategoryId ? Number(editCategoryId) : null,
         tagIds: editTagIds,
         purchaseDate: editPurchaseDate || null,
         startDate: editStartDate || null,
@@ -253,6 +259,32 @@ export default function BookDetailPage() {
               </label>
             ) : (
               <span className="text-sm">{book.favoriteFlag ? '♥ お気に入り' : '—'}</span>
+            )}
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">カテゴリー</label>
+            {editing ? (
+              <select
+                value={editCategoryId}
+                onChange={(e) => setEditCategoryId(e.target.value ? Number(e.target.value) : '')}
+                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">未分類</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+            ) : book.category ? (
+              <span
+                className="inline-block px-2 py-0.5 rounded text-xs text-gray-700"
+                style={{ backgroundColor: book.category.colorHex ?? '#e5e7eb' }}
+              >
+                {book.category.name}
+              </span>
+            ) : (
+              <span className="text-sm text-gray-400">未分類</span>
             )}
           </div>
 

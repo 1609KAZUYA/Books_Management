@@ -44,6 +44,10 @@ public class UserBook {
     @JoinColumn(name = "book_master_id", nullable = false)
     private BookMaster bookMaster;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private BookStatus status;

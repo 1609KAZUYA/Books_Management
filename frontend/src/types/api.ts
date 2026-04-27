@@ -49,6 +49,13 @@ export interface Tag {
   sortOrder: number
 }
 
+export interface Category {
+  id: number
+  name: string
+  colorHex?: string | null
+  sortOrder: number
+}
+
 export interface BookMasterSummary {
   id?: number
   isbn13?: string | null
@@ -71,6 +78,7 @@ export interface BookListItem {
   startDate?: string | null
   finishDate?: string | null
   updatedAt: string
+  category?: Category | null
   tags: Tag[]
   bookMaster: BookMasterSummary
 }
@@ -108,6 +116,7 @@ export interface CreateBookRequest {
   rating?: number | null
   favoriteFlag?: boolean
   memo?: string | null
+  categoryId?: number | null
   tagIds?: number[]
 }
 
@@ -115,6 +124,7 @@ export interface ImportByIsbnRequest {
   isbn: string
   status: BookStatus
   memo?: string | null
+  categoryId?: number | null
   tagIds?: number[]
 }
 
@@ -127,6 +137,7 @@ export interface UpdateBookRequest {
   finishDate?: string | null
   memo?: string | null
   locationNote?: string | null
+  categoryId?: number | null
   tagIds?: number[]
 }
 
@@ -150,6 +161,22 @@ export interface UpdateTagRequest {
 
 export interface TagListResponse {
   items: Tag[]
+}
+
+export interface CreateCategoryRequest {
+  name: string
+  colorHex?: string | null
+  sortOrder?: number
+}
+
+export interface UpdateCategoryRequest {
+  name?: string
+  colorHex?: string | null
+  sortOrder?: number
+}
+
+export interface CategoryListResponse {
+  items: Category[]
 }
 
 export interface IsbnLookupCandidate {

@@ -7,6 +7,7 @@ import BookListPage from './pages/BookListPage'
 import BookDetailPage from './pages/BookDetailPage'
 import BookNewPage from './pages/BookNewPage'
 import TagManagePage from './pages/TagManagePage'
+import CategoryManagePage from './pages/CategoryManagePage'
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
             <Route path="books" element={<BookListPage />} />
             <Route path="books/new" element={<BookNewPage />} />
             <Route path="books/:id" element={<BookDetailPage />} />
+            <Route path="categories" element={<CategoryManagePage />} />
             <Route path="tags" element={<TagManagePage />} />
           </Route>
           <Route path="*" element={<Navigate to="/books" replace />} />

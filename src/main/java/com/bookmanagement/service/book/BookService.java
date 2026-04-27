@@ -3,6 +3,7 @@ package com.bookmanagement.service.book;
 import com.bookmanagement.common.exception.NotFoundException;
 import com.bookmanagement.common.exception.ValidationException;
 import com.bookmanagement.domain.entity.BookMaster;
+import com.bookmanagement.domain.entity.Category;
 import com.bookmanagement.domain.entity.Tag;
 import com.bookmanagement.domain.entity.User;
 import com.bookmanagement.domain.entity.UserBook;
@@ -23,6 +24,7 @@ import com.bookmanagement.repository.BookMasterRepository;
 import com.bookmanagement.repository.TagRepository;
 import com.bookmanagement.repository.UserBookRepository;
 import com.bookmanagement.repository.UserBookTagRepository;
+import com.bookmanagement.service.category.CategoryService;
 import com.bookmanagement.service.isbn.BookMetadata;
 import com.bookmanagement.service.isbn.IsbnLookupService;
 import com.bookmanagement.service.isbn.IsbnNormalizer;
@@ -59,6 +61,7 @@ public class BookService {
     private final TagRepository tagRepository;
     private final UserBookTagRepository userBookTagRepository;
     private final UserContextService userContextService;
+    private final CategoryService categoryService;
     private final TagService tagService;
     private final IsbnLookupService isbnLookupService;
     private final IsbnNormalizer isbnNormalizer;
@@ -68,6 +71,8 @@ public class BookService {
     public BookListResponse searchBooks(
             String keyword,
             BookStatus status,
+            Long categoryId,
+            Boolean uncategorized,
             Long tagId,
             Boolean favorite,
             String sort,
@@ -80,6 +85,7 @@ public class BookService {
         Specification<UserBook> spec = byUser(user.getId())
                 .and(activeOnly())
                 .and(byStatus(status))
+                .and(byCategory(categoryId, uncategorized))
                 .and(byFavorite(favorite))
                 .and(byTagId(tagId))
                 .and(byKeyword(keyword));
@@ -99,23 +105,30 @@ public class BookService {
     public UserBookDetailResponse createManualBook(CreateBookRequest request) {
         User user = userContextService.requireCurrentUser();
         validateRatingStep(request.rating());
+        Category category = categoryService.resolveCategory(user.getId(), request.categoryId());
 
         String isbn13 = resolveIsbn13(request.isbn13(), request.isbn10());
         Optional<UserBook> repairableUserBook = findRepairableUserBook(user.getId(), request, isbn13);
         if (repairableUserBook.isPresent()) {
-            return repairUserBookMaster(repairableUserBook.get(), request, isbn13);
+            return repairUserBookMaster(repairableUserBook.get(), request, isbn13, category);
         }
 
         BookMaster bookMaster = resolveOrCreateManualBookMaster(request, isbn13);
         Optional<UserBook> existingUserBook = userBookRepository
                 .findByUser_IdAndBookMaster_IdAndDeletedAtIsNull(user.getId(), bookMaster.getId());
         if (existingUserBook.isPresent()) {
+            UserBook existing = existingUserBook.get();
+            if (request.categoryId() != null) {
+                existing.setCategory(category);
+                return toDetail(userBookRepository.save(existing));
+            }
             return toDetail(existingUserBook.get());
         }
 
         UserBook userBook = new UserBook();
         userBook.setUser(user);
         userBook.setBookMaster(bookMaster);
+        userBook.setCategory(category);
         userBook.setStatus(request.status());
         userBook.setRating(request.rating());
         userBook.setFavoriteFlag(Boolean.TRUE.equals(request.favoriteFlag()));
@@ -135,17 +148,26 @@ public class BookService {
         return userBookRepository.findRepairableUserBooks(userId, request.title().trim()).stream().findFirst();
     }
 
-    private UserBookDetailResponse repairUserBookMaster(UserBook userBook, CreateBookRequest request, String isbn13) {
+    private UserBookDetailResponse repairUserBookMaster(
+            UserBook userBook,
+            CreateBookRequest request,
+            String isbn13,
+            Category category
+    ) {
         BookMaster repairedMaster = bookMasterRepository.findByIsbn13(isbn13)
                 .map(existing -> updateMissingBookMasterFields(existing, request, isbn13))
                 .orElseGet(() -> updateMissingBookMasterFields(userBook.getBookMaster(), request, isbn13));
         userBook.setBookMaster(repairedMaster);
+        if (request.categoryId() != null) {
+            userBook.setCategory(category);
+        }
         return toDetail(userBookRepository.save(userBook));
     }
 
     @Transactional
     public UserBookDetailResponse importByIsbn(ImportByIsbnRequest request) {
         User user = userContextService.requireCurrentUser();
+        Category category = categoryService.resolveCategory(user.getId(), request.categoryId());
         BookMetadata metadata = isbnLookupService.lookupFirstForImport(request.isbn());
         BookMaster bookMaster = bookMasterRepository.findByIsbn13(metadata.isbn13())
                 .orElseGet(() -> createBookMasterFromMetadata(metadata));
@@ -153,12 +175,18 @@ public class BookService {
         Optional<UserBook> existingUserBook = userBookRepository
                 .findByUser_IdAndBookMaster_IdAndDeletedAtIsNull(user.getId(), bookMaster.getId());
         if (existingUserBook.isPresent()) {
+            UserBook existing = existingUserBook.get();
+            if (request.categoryId() != null) {
+                existing.setCategory(category);
+                return toDetail(userBookRepository.save(existing));
+            }
             return toDetail(existingUserBook.get());
         }
 
         UserBook userBook = new UserBook();
         userBook.setUser(user);
         userBook.setBookMaster(bookMaster);
+        userBook.setCategory(category);
         userBook.setStatus(request.status());
         userBook.setFavoriteFlag(false);
         userBook.setMemo(request.memo());
@@ -178,6 +206,7 @@ public class BookService {
     public UserBookDetailResponse updateBook(Long userBookId, UpdateBookRequest request) {
         User user = userContextService.requireCurrentUser();
         UserBook userBook = findUserBookOrThrow(user.getId(), userBookId);
+        userBook.setCategory(categoryService.resolveCategory(user.getId(), request.categoryId()));
 
         if (request.status() != null) {
             userBook.setStatus(request.status());
@@ -389,6 +418,7 @@ public class BookService {
 
     private void replaceTags(UserBook userBook, Long userId, List<Long> tagIds) {
         userBook.getTagLinks().clear();
+        userBookRepository.flush();
         List<Tag> tags = tagService.resolveTags(userId, tagIds);
         for (Tag tag : tags) {
             UserBookTag link = new UserBookTag();
@@ -413,6 +443,18 @@ public class BookService {
 
     private Specification<UserBook> byFavorite(Boolean favorite) {
         return (root, query, cb) -> favorite == null ? cb.conjunction() : cb.equal(root.get("favoriteFlag"), favorite);
+    }
+
+    private Specification<UserBook> byCategory(Long categoryId, Boolean uncategorized) {
+        return (root, query, cb) -> {
+            if (Boolean.TRUE.equals(uncategorized)) {
+                return cb.isNull(root.get("category"));
+            }
+            if (categoryId == null) {
+                return cb.conjunction();
+            }
+            return cb.equal(root.get("category").get("id"), categoryId);
+        };
     }
 
     private Specification<UserBook> byTagId(Long tagId) {
@@ -500,6 +542,7 @@ public class BookService {
                 userBook.getStartDate(),
                 userBook.getFinishDate(),
                 userBook.getUpdatedAt(),
+                categoryService.toResponse(userBook.getCategory()),
                 toTags(userBook),
                 toBookMaster(userBook.getBookMaster()),
                 userBook.getMemo(),
@@ -519,6 +562,7 @@ public class BookService {
                 userBook.getStartDate(),
                 userBook.getFinishDate(),
                 userBook.getUpdatedAt(),
+                categoryService.toResponse(userBook.getCategory()),
                 toTags(userBook),
                 toBookMaster(userBook.getBookMaster())
         );

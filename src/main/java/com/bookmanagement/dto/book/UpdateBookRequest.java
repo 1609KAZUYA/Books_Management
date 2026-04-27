@@ -17,6 +17,7 @@ public record UpdateBookRequest(
         LocalDate finishDate,
         @Size(max = 10000) String memo,
         @Size(max = 255) String locationNote,
+        Long categoryId,
         List<Long> tagIds
 ) {
 }
