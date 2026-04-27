@@ -3,6 +3,7 @@ package com.bookmanagement.controller;
 import com.bookmanagement.dto.auth.LoginRequest;
 import com.bookmanagement.dto.auth.LoginResponse;
 import com.bookmanagement.dto.auth.MeResponse;
+import com.bookmanagement.dto.auth.RegisterRequest;
 import com.bookmanagement.service.auth.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,11 @@ public class AuthController {
     @PostMapping("/auth/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/auth/register")
+    public LoginResponse register(@Valid @RequestBody RegisterRequest request) {
+        return authService.register(request);
     }
 
     @PostMapping("/auth/logout")

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 import LandingPage from './pages/LandingPage'
 import BookListPage from './pages/BookListPage'
 import BookDetailPage from './pages/BookDetailPage'
@@ -16,13 +17,21 @@ function HomeRoute() {
   return <LandingPage />
 }
 
+function GuestRoute({ children }: { children: JSX.Element }) {
+  const { isAuthenticated, isLoading } = useAuth()
+  if (isLoading) return null
+  if (isAuthenticated) return <Navigate to="/books" replace />
+  return children
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<HomeRoute />} />
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
+          <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
           <Route
             element={
               <ProtectedRoute>

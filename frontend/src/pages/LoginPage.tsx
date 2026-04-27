@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { login as apiLogin } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
 
@@ -91,6 +91,12 @@ export default function LoginPage() {
         </form>
         <p className="text-xs text-gray-400 mt-4 text-center">
           デモ: demo@example.com / demo1234
+        </p>
+        <p className="text-sm text-gray-500 mt-4 text-center">
+          アカウントをお持ちでない方は{' '}
+          <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+            新規登録
+          </Link>
         </p>
       </div>
     </div>

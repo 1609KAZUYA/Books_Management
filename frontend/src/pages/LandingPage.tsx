@@ -30,6 +30,7 @@ export default function LandingPage() {
   const navigate = useNavigate()
   const [hovered, setHovered] = useState<string | null>(null)
   const goLogin = () => navigate('/login')
+  const goRegister = () => navigate('/register')
 
   return (
     <div style={baseStyle}>
@@ -89,7 +90,7 @@ export default function LandingPage() {
           </nav>
           <button
             type="button"
-            onClick={goLogin}
+            onClick={goRegister}
             onMouseEnter={() => setHovered('cta-top')}
             onMouseLeave={() => setHovered(null)}
             style={{
@@ -167,7 +168,7 @@ export default function LandingPage() {
               <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                 <button
                   type="button"
-                  onClick={goLogin}
+                  onClick={goRegister}
                   onMouseEnter={() => setHovered('cta-hero')}
                   onMouseLeave={() => setHovered(null)}
                   style={{
@@ -353,7 +354,7 @@ export default function LandingPage() {
           </p>
           <button
             type="button"
-            onClick={goLogin}
+            onClick={goRegister}
             onMouseEnter={() => setHovered('cta-end')}
             onMouseLeave={() => setHovered(null)}
             style={{
