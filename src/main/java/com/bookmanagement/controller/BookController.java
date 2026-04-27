@@ -44,13 +44,12 @@ public class BookController {
             @RequestParam(required = false) BookStatus status,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Boolean uncategorized,
-            @RequestParam(required = false) Long tagId,
             @RequestParam(required = false) Boolean favorite,
             @RequestParam(required = false, defaultValue = "updatedAtDesc") String sort,
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
-        return bookService.searchBooks(keyword, status, categoryId, uncategorized, tagId, favorite, sort, page, size);
+        return bookService.searchBooks(keyword, status, categoryId, uncategorized, favorite, sort, page, size);
     }
 
     @GetMapping("/external-search")
@@ -102,21 +101,4 @@ public class BookController {
         return bookService.updateStatus(userBookId, request);
     }
 
-    @PostMapping("/{userBookId}/tags/{tagId}")
-    public ResponseEntity<Void> addTag(
-            @PathVariable Long userBookId,
-            @PathVariable Long tagId
-    ) {
-        bookService.addTag(userBookId, tagId);
-        return ResponseEntity.noContent().build();
-    }
-
-    @DeleteMapping("/{userBookId}/tags/{tagId}")
-    public ResponseEntity<Void> removeTag(
-            @PathVariable Long userBookId,
-            @PathVariable Long tagId
-    ) {
-        bookService.removeTag(userBookId, tagId);
-        return ResponseEntity.noContent().build();
-    }
 }

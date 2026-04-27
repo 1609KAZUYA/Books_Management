@@ -1,18 +1,35 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { createCategory, deleteCategory, getCategories, updateCategory } from '../api/categories'
-import type { Category } from '../types/api'
+import { useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
+import { searchBooks } from '../api/books'
+import {
+  createCategory,
+  deleteCategory,
+  getCategories,
+  updateCategory,
+} from '../api/categories'
+import type { BookListItem, Category } from '../types/api'
+import { EDITORIAL, FONTS, PALETTE_10, shade } from '../styles/editorial'
+
+interface CategoryStat {
+  count: number
+  latest?: BookListItem
+}
 
 export default function CategoryManagePage() {
   const [categories, setCategories] = useState<Category[]>([])
+  const [stats, setStats] = useState<Record<number, CategoryStat>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
   const [newName, setNewName] = useState('')
-  const [newColor, setNewColor] = useState('#2563eb')
+  const [newColor, setNewColor] = useState<string>(PALETTE_10[5])
   const [creating, setCreating] = useState(false)
+  const [submitHover, setSubmitHover] = useState(false)
+  const [paletteHover, setPaletteHover] = useState<number | null>(null)
+
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
-  const [editColor, setEditColor] = useState('')
+  const [editColor, setEditColor] = useState<string>(PALETTE_10[0])
 
   const reload = () =>
     getCategories()
@@ -20,17 +37,52 @@ export default function CategoryManagePage() {
       .catch(() => setError('カテゴリーを読み込めませんでした'))
       .finally(() => setLoading(false))
 
-  useEffect(() => { reload() }, [])
+  useEffect(() => {
+    reload()
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all(
+      categories.map((c) =>
+        searchBooks({ categoryId: c.id, size: 1, sort: 'updatedAtDesc' }).then((data) => ({
+          id: c.id,
+          count: data.meta.totalItems,
+          latest: data.items[0],
+        })),
+      ),
+    )
+      .then((results) => {
+        if (cancelled) return
+        const next: Record<number, CategoryStat> = {}
+        for (const r of results) {
+          next[r.id] = { count: r.count, latest: r.latest }
+        }
+        setStats(next)
+      })
+      .catch(() => {
+        if (!cancelled) setStats({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [categories])
+
+  const totalBooks = useMemo(
+    () => Object.values(stats).reduce((sum, s) => sum + s.count, 0),
+    [stats],
+  )
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!newName.trim()) return
     setCreating(true)
     setError('')
     try {
-      await createCategory({ name: newName, colorHex: newColor })
+      await createCategory({ name: newName.trim(), colorHex: newColor })
       setNewName('')
-      setNewColor('#2563eb')
-      reload()
+      setNewColor(PALETTE_10[5])
+      await reload()
     } catch {
       setError('カテゴリーの作成に失敗しました')
     } finally {
@@ -41,132 +93,701 @@ export default function CategoryManagePage() {
   const startEdit = (category: Category) => {
     setEditingId(category.id)
     setEditName(category.name)
-    setEditColor(category.colorHex ?? '#e5e7eb')
+    setEditColor(category.colorHex ?? PALETTE_10[5])
   }
 
   const handleUpdate = async (categoryId: number) => {
     setError('')
     try {
-      await updateCategory(categoryId, { name: editName, colorHex: editColor })
+      await updateCategory(categoryId, { name: editName.trim(), colorHex: editColor })
       setEditingId(null)
-      reload()
+      await reload()
     } catch {
       setError('カテゴリーの更新に失敗しました')
     }
   }
 
   const handleDelete = async (categoryId: number, name: string) => {
-    if (!window.confirm(`「${name}」を削除しますか？このカテゴリーの本は未分類になります。`)) return
+    if (!window.confirm(`「${name}」を削除しますか？このカテゴリーの本は未分類になります。`))
+      return
     setError('')
     try {
       await deleteCategory(categoryId)
-      reload()
+      await reload()
     } catch {
       setError('カテゴリーの削除に失敗しました')
     }
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-gray-900">カテゴリー</h1>
-        <Link to="/books?uncategorized=1" className="text-sm text-gray-500 hover:text-gray-900">
-          未分類を見る
-        </Link>
-      </div>
+    <div style={{ background: EDITORIAL.paper, color: EDITORIAL.ink }}>
+      <section style={{ padding: '56px 56px 36px' }}>
+        <div
+          style={{
+            fontFamily: FONTS.mono,
+            fontSize: 11,
+            color: EDITORIAL.accent,
+            letterSpacing: '0.2em',
+            marginBottom: 20,
+          }}
+        >
+          ── CATALOGUE · ORGANIZE BY COLOR ──
+        </div>
+        <h1
+          style={{
+            fontFamily: FONTS.serif,
+            fontSize: 88,
+            fontWeight: 300,
+            letterSpacing: '-0.03em',
+            lineHeight: 1,
+            margin: 0,
+          }}
+        >
+          カテゴリー{' '}
+          <span style={{ fontStyle: 'italic', color: EDITORIAL.accent, fontSize: 64 }}>
+            Categories
+          </span>
+        </h1>
+        <p
+          style={{
+            fontSize: 16,
+            color: EDITORIAL.inkSoft,
+            marginTop: 18,
+            maxWidth: 580,
+            fontFamily: FONTS.serif,
+            fontStyle: 'italic',
+            lineHeight: 1.7,
+          }}
+        >
+          自由に作れるカテゴリーには、好きな色を添えて。背表紙のように並んだラベルが、本棚に小さなリズムを生みます。
+        </p>
+      </section>
 
-      {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+      {error && (
+        <div style={{ padding: '0 56px 16px' }}>
+          <div
+            style={{
+              padding: '12px 16px',
+              border: `1px solid ${shade('#a83a2a', 30)}`,
+              background: '#faeae5',
+              color: '#a83a2a',
+              fontFamily: FONTS.serif,
+              fontStyle: 'italic',
+              fontSize: 14,
+            }}
+          >
+            {error}
+          </div>
+        </div>
+      )}
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">新しいカテゴリーを追加</h2>
-        <form onSubmit={handleCreate} className="flex gap-2 items-end">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">名前</label>
+      <section
+        style={{
+          padding: '0 56px 80px',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1.6fr',
+          gap: 40,
+        }}
+      >
+        {/* Left: New category form */}
+        <form
+          onSubmit={handleCreate}
+          style={{
+            background: EDITORIAL.panel,
+            border: `1px solid ${EDITORIAL.line}`,
+            padding: 28,
+            alignSelf: 'flex-start',
+            position: 'sticky',
+            top: 100,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: FONTS.mono,
+              fontSize: 10,
+              color: EDITORIAL.accent,
+              letterSpacing: '0.2em',
+              marginBottom: 14,
+            }}
+          >
+            ── NEW ENTRY ──
+          </div>
+          <h2
+            style={{
+              fontFamily: FONTS.serif,
+              fontSize: 28,
+              fontWeight: 500,
+              marginBottom: 6,
+              letterSpacing: '-0.015em',
+              margin: 0,
+            }}
+          >
+            新しいカテゴリー
+          </h2>
+          <p
+            style={{
+              fontSize: 13,
+              color: EDITORIAL.inkSoft,
+              fontStyle: 'italic',
+              fontFamily: FONTS.serif,
+              marginBottom: 24,
+              marginTop: 6,
+            }}
+          >
+            Add a new category
+          </p>
+
+          <label style={{ display: 'block', marginBottom: 22 }}>
+            <div
+              style={{
+                fontFamily: FONTS.mono,
+                fontSize: 10,
+                color: EDITORIAL.inkMuted,
+                letterSpacing: '0.16em',
+                marginBottom: 8,
+              }}
+            >
+              名前 · NAME
+            </div>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
+              placeholder="例：エッセイ"
               required
               maxLength={50}
-              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{
+                width: '100%',
+                padding: '10px 0',
+                border: 'none',
+                borderBottom: `1px solid ${EDITORIAL.ink}`,
+                background: 'transparent',
+                outline: 'none',
+                fontFamily: FONTS.serif,
+                fontSize: 18,
+                color: EDITORIAL.ink,
+                fontStyle: newName ? 'normal' : 'italic',
+              }}
             />
+          </label>
+
+          <div style={{ marginBottom: 28 }}>
+            <div
+              style={{
+                fontFamily: FONTS.mono,
+                fontSize: 10,
+                color: EDITORIAL.inkMuted,
+                letterSpacing: '0.16em',
+                marginBottom: 12,
+              }}
+            >
+              カラー · COLOR
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+              {PALETTE_10.map((c, i) => {
+                const selected = newColor === c
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setNewColor(c)}
+                    onMouseEnter={() => setPaletteHover(i)}
+                    onMouseLeave={() => setPaletteHover(null)}
+                    aria-label={`カラー ${c}`}
+                    style={{
+                      width: '100%',
+                      aspectRatio: '1',
+                      borderRadius: '50%',
+                      background: c,
+                      cursor: 'pointer',
+                      border: selected
+                        ? `2px solid ${EDITORIAL.ink}`
+                        : '2px solid transparent',
+                      outline: selected ? `2px solid ${c}40` : 'none',
+                      outlineOffset: 3,
+                      transform: paletteHover === i ? 'scale(1.12)' : 'scale(1)',
+                      transition: 'all 0.18s',
+                      padding: 0,
+                    }}
+                  />
+                )
+              })}
+            </div>
           </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">カラー</label>
-            <input
-              type="color"
-              value={newColor}
-              onChange={(e) => setNewColor(e.target.value)}
-              className="h-8 w-12 border border-gray-300 rounded cursor-pointer"
-            />
+
+          {/* Live preview */}
+          <div
+            style={{
+              marginBottom: 28,
+              padding: 16,
+              background: EDITORIAL.paperDeep,
+              border: `1px solid ${EDITORIAL.lineSoft}`,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: FONTS.mono,
+                fontSize: 9,
+                color: EDITORIAL.inkMuted,
+                letterSpacing: '0.14em',
+                marginBottom: 10,
+              }}
+            >
+              PREVIEW
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  background: newColor,
+                }}
+              />
+              <span
+                style={{
+                  background: newColor,
+                  color: '#fff',
+                  padding: '4px 12px',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  borderRadius: 2,
+                  fontFamily: FONTS.sans,
+                }}
+              >
+                {newName || 'カテゴリー名'}
+              </span>
+            </div>
           </div>
+
           <button
             type="submit"
             disabled={creating}
-            className="bg-blue-600 text-white px-4 py-1.5 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+            onMouseEnter={() => setSubmitHover(true)}
+            onMouseLeave={() => setSubmitHover(false)}
+            style={{
+              width: '100%',
+              background: creating
+                ? EDITORIAL.inkMuted
+                : submitHover
+                  ? EDITORIAL.ink
+                  : EDITORIAL.accent,
+              color: EDITORIAL.paper,
+              padding: '14px 0',
+              borderRadius: 2,
+              border: 'none',
+              fontSize: 14,
+              fontWeight: 500,
+              fontFamily: FONTS.sans,
+              cursor: creating ? 'wait' : 'pointer',
+              transition: 'all 0.25s',
+              letterSpacing: '0.04em',
+            }}
           >
-            {creating ? '作成中...' : '追加'}
+            {creating ? '追加中…  Adding…' : '追加する  Add  →'}
           </button>
         </form>
+
+        {/* Right: Existing categories */}
+        <div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              paddingBottom: 14,
+              marginBottom: 8,
+              borderBottom: `2px solid ${EDITORIAL.ink}`,
+              flexWrap: 'wrap',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, flexWrap: 'wrap' }}>
+              <h2
+                style={{
+                  fontFamily: FONTS.serif,
+                  fontSize: 32,
+                  fontWeight: 500,
+                  letterSpacing: '-0.015em',
+                  margin: 0,
+                }}
+              >
+                登録済み
+              </h2>
+              <span
+                style={{
+                  fontFamily: FONTS.serif,
+                  fontSize: 18,
+                  fontStyle: 'italic',
+                  color: EDITORIAL.inkSoft,
+                }}
+              >
+                Your catalogue
+              </span>
+            </div>
+            <span
+              style={{
+                fontFamily: FONTS.mono,
+                fontSize: 11,
+                color: EDITORIAL.inkMuted,
+                letterSpacing: '0.14em',
+              }}
+            >
+              {categories.length} CATEGORIES · {totalBooks} BOOKS
+            </span>
+          </div>
+
+          {/* Header row */}
+          <div style={tableHeaderStyle}>
+            <span>NO.</span>
+            <span>NAME · 名前</span>
+            <span>LATEST · 最新の本</span>
+            <span style={{ textAlign: 'right' }}>BOOKS</span>
+            <span style={{ textAlign: 'right' }}>ACTIONS</span>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: 56, textAlign: 'center', color: EDITORIAL.inkMuted }}>
+              <span style={{ fontFamily: FONTS.serif, fontStyle: 'italic' }}>
+                読み込み中…
+              </span>
+            </div>
+          ) : categories.length === 0 ? (
+            <div style={{ padding: 56, textAlign: 'center', color: EDITORIAL.inkSoft }}>
+              <div style={{ fontFamily: FONTS.serif, fontStyle: 'italic', fontSize: 16 }}>
+                まだカテゴリーがありません — 左のフォームから最初の一つを。
+              </div>
+            </div>
+          ) : (
+            categories.map((category, i) => {
+              const stat = stats[category.id]
+              const isEditing = editingId === category.id
+              return (
+                <CategoryRow
+                  key={category.id}
+                  index={i}
+                  category={category}
+                  stat={stat}
+                  isEditing={isEditing}
+                  editName={editName}
+                  editColor={editColor}
+                  onEditNameChange={setEditName}
+                  onEditColorChange={setEditColor}
+                  onSave={() => handleUpdate(category.id)}
+                  onCancel={() => setEditingId(null)}
+                  onStartEdit={() => startEdit(category)}
+                  onDelete={() => handleDelete(category.id, category.name)}
+                />
+              )
+            })
+          )}
+
+          <div
+            style={{
+              marginTop: 32,
+              padding: '24px 28px',
+              border: `1px solid ${EDITORIAL.line}`,
+              background: EDITORIAL.paperDeep,
+              display: 'flex',
+              gap: 18,
+              alignItems: 'flex-start',
+            }}
+          >
+            <span
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: EDITORIAL.accent,
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: FONTS.serif,
+                fontStyle: 'italic',
+                fontSize: 18,
+                flexShrink: 0,
+              }}
+            >
+              i
+            </span>
+            <div>
+              <div
+                style={{
+                  fontFamily: FONTS.serif,
+                  fontSize: 16,
+                  fontWeight: 500,
+                  marginBottom: 4,
+                }}
+              >
+                色は、本棚の表情になります。
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: EDITORIAL.inkSoft,
+                  fontStyle: 'italic',
+                  fontFamily: FONTS.serif,
+                }}
+              >
+                Colors become the personality of your shelves — choose ones that feel right.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+interface CategoryRowProps {
+  index: number
+  category: Category
+  stat?: CategoryStat
+  isEditing: boolean
+  editName: string
+  editColor: string
+  onEditNameChange: (v: string) => void
+  onEditColorChange: (v: string) => void
+  onSave: () => void
+  onCancel: () => void
+  onStartEdit: () => void
+  onDelete: () => void
+}
+
+function CategoryRow({
+  index,
+  category,
+  stat,
+  isEditing,
+  editName,
+  editColor,
+  onEditNameChange,
+  onEditColorChange,
+  onSave,
+  onCancel,
+  onStartEdit,
+  onDelete,
+}: CategoryRowProps) {
+  const [hover, setHover] = useState(false)
+  const color = category.colorHex ?? '#8a7a6c'
+  const latest = stat?.latest
+
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '40px 1fr 1.4fr 80px 140px',
+        gap: 18,
+        padding: '20px 4px',
+        alignItems: 'center',
+        borderBottom: `1px solid ${EDITORIAL.line}`,
+        background: hover ? EDITORIAL.paperSoft : 'transparent',
+        transition: 'background 0.15s',
+      }}
+    >
+      <span
+        style={{
+          fontFamily: FONTS.serif,
+          fontSize: 22,
+          fontWeight: 300,
+          color: EDITORIAL.inkMuted,
+          fontStyle: 'italic',
+        }}
+      >
+        {String(index + 1).padStart(2, '0')}
+      </span>
+
+      {isEditing ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input
+            type="text"
+            value={editName}
+            onChange={(e) => onEditNameChange(e.target.value)}
+            style={{
+              padding: '6px 10px',
+              border: `1px solid ${EDITORIAL.ink}`,
+              background: EDITORIAL.panel,
+              outline: 'none',
+              fontFamily: FONTS.serif,
+              fontSize: 15,
+              color: EDITORIAL.ink,
+            }}
+          />
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {PALETTE_10.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onEditColorChange(c)}
+                aria-label={`カラー ${c}`}
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: '50%',
+                  background: c,
+                  border:
+                    editColor === c
+                      ? `2px solid ${EDITORIAL.ink}`
+                      : '2px solid transparent',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <span
+            style={{
+              width: 12,
+              height: 12,
+              borderRadius: '50%',
+              background: color,
+            }}
+          />
+          <span
+            style={{
+              background: color,
+              color: '#fff',
+              padding: '4px 12px',
+              fontSize: 13,
+              fontWeight: 500,
+              borderRadius: 2,
+              fontFamily: FONTS.sans,
+            }}
+          >
+            {category.name}
+          </span>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {latest ? (
+          <>
+            <div
+              style={{
+                width: 24,
+                height: 32,
+                background: `linear-gradient(135deg, ${shade(color, 15)}, ${shade(color, -25)})`,
+                boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.15)',
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontFamily: FONTS.serif,
+                fontSize: 14,
+                fontStyle: 'italic',
+                color: EDITORIAL.ink,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              「{latest.bookMaster.title}」
+            </span>
+          </>
+        ) : (
+          <span
+            style={{
+              fontFamily: FONTS.serif,
+              fontStyle: 'italic',
+              fontSize: 13,
+              color: EDITORIAL.inkMuted,
+            }}
+          >
+            まだ本がありません
+          </span>
+        )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-100">
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
-          </div>
-        ) : categories.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 text-sm">カテゴリーがありません</div>
+      <span
+        style={{
+          fontFamily: FONTS.serif,
+          fontSize: 22,
+          fontWeight: 400,
+          color: EDITORIAL.ink,
+          textAlign: 'right',
+        }}
+      >
+        {stat?.count ?? '—'}
+      </span>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: 4,
+          justifyContent: 'flex-end',
+          opacity: hover || isEditing ? 1 : 0.5,
+          transition: 'opacity 0.15s',
+        }}
+      >
+        {isEditing ? (
+          <>
+            <IconBtn onClick={onSave}>保存</IconBtn>
+            <IconBtn onClick={onCancel}>キャンセル</IconBtn>
+          </>
         ) : (
-          categories.map((category) => (
-            <div key={category.id} className="flex items-center justify-between px-4 py-3">
-              {editingId === category.id ? (
-                <div className="flex items-center gap-2 flex-1">
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="color"
-                    value={editColor}
-                    onChange={(e) => setEditColor(e.target.value)}
-                    className="h-7 w-10 border border-gray-300 rounded cursor-pointer"
-                  />
-                  <button onClick={() => handleUpdate(category.id)} className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                    保存
-                  </button>
-                  <button onClick={() => setEditingId(null)} className="text-sm text-gray-500 hover:text-gray-700">
-                    キャンセル
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-4 h-4 rounded-full inline-block border border-gray-200"
-                      style={{ backgroundColor: category.colorHex ?? '#e5e7eb' }}
-                    />
-                    <span className="text-sm font-medium text-gray-800">{category.name}</span>
-                  </div>
-                  <div className="flex gap-3">
-                    <Link to={`/books?categoryId=${category.id}`} className="text-xs text-blue-600 hover:text-blue-800">
-                      本を見る
-                    </Link>
-                    <button onClick={() => startEdit(category)} className="text-xs text-gray-500 hover:text-gray-700">
-                      編集
-                    </button>
-                    <button onClick={() => handleDelete(category.id, category.name)} className="text-xs text-red-500 hover:text-red-700">
-                      削除
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ))
+          <>
+            <IconBtn onClick={onStartEdit}>編集</IconBtn>
+            <IconBtn onClick={onDelete} danger>
+              削除
+            </IconBtn>
+          </>
         )}
       </div>
     </div>
   )
+}
+
+function IconBtn({
+  children,
+  onClick,
+  danger,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  danger?: boolean
+}) {
+  const [hover, setHover] = useState(false)
+  const baseColor = danger ? '#a83a2a' : EDITORIAL.inkSoft
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: 'transparent',
+        border: 'none',
+        color: baseColor,
+        fontSize: 12,
+        cursor: 'pointer',
+        padding: '4px 8px',
+        fontFamily: FONTS.serif,
+        fontStyle: 'italic',
+        borderBottom: hover ? `1px solid ${baseColor}` : '1px solid transparent',
+        transition: 'all 0.15s',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+const tableHeaderStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '40px 1fr 1.4fr 80px 140px',
+  gap: 18,
+  padding: '12px 4px',
+  fontFamily: FONTS.mono,
+  fontSize: 10,
+  color: EDITORIAL.inkMuted,
+  letterSpacing: '0.16em',
+  borderBottom: `1px solid ${EDITORIAL.line}`,
 }

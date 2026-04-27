@@ -3,14 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { createBook, searchExternalBooks } from '../api/books'
 import { getCategories } from '../api/categories'
 import { lookupIsbn } from '../api/isbn'
-import { getTags } from '../api/tags'
 import type {
   BookStatus,
   Category,
   ExternalBookSearchCandidate,
   ExternalBookSearchType,
   IsbnLookupCandidate,
-  Tag,
 } from '../types/api'
 import { BOOK_STATUS_LABELS } from '../types/api'
 
@@ -29,11 +27,9 @@ export default function BookNewPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<TabType>('search')
   const [categories, setCategories] = useState<Category[]>([])
-  const [tags, setTags] = useState<Tag[]>([])
 
   useEffect(() => {
     getCategories().then(setCategories).catch(() => {})
-    getTags().then(setTags).catch(() => {})
   }, [])
 
   return (
@@ -82,11 +78,11 @@ export default function BookNewPage() {
 
         <div className="p-6">
           {tab === 'search' ? (
-            <ExternalSearchTab categories={categories} tags={tags} onCreated={(id) => navigate(`/books/${id}`)} />
+            <ExternalSearchTab categories={categories} onCreated={(id) => navigate(`/books/${id}`)} />
           ) : tab === 'isbn' ? (
-            <IsbnTab categories={categories} tags={tags} onCreated={(id) => navigate(`/books/${id}`)} />
+            <IsbnTab categories={categories} onCreated={(id) => navigate(`/books/${id}`)} />
           ) : (
-            <ManualTab categories={categories} tags={tags} onCreated={(id) => navigate(`/books/${id}`)} />
+            <ManualTab categories={categories} onCreated={(id) => navigate(`/books/${id}`)} />
           )}
         </div>
       </div>
@@ -96,11 +92,9 @@ export default function BookNewPage() {
 
 function ExternalSearchTab({
   categories,
-  tags,
   onCreated,
 }: {
   categories: Category[]
-  tags: Tag[]
   onCreated: (id: number) => void
 }) {
   const [query, setQuery] = useState('')
@@ -116,7 +110,6 @@ function ExternalSearchTab({
   const [status, setStatus] = useState<BookStatus>('WISHLIST')
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [memo, setMemo] = useState('')
-  const [tagIds, setTagIds] = useState<number[]>([])
   const [savingKey, setSavingKey] = useState('')
   const [saveError, setSaveError] = useState('')
   const searchSeqRef = useRef(0)
@@ -205,7 +198,6 @@ function ExternalSearchTab({
         status,
         categoryId: categoryId ? Number(categoryId) : null,
         memo: memo || null,
-        tagIds,
       })
       onCreated(book.id)
     } catch (err: unknown) {
@@ -215,9 +207,6 @@ function ExternalSearchTab({
       setSavingKey('')
     }
   }
-
-  const toggleTag = (id: number) =>
-    setTagIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
   return (
     <div className="space-y-5">
@@ -267,30 +256,6 @@ function ExternalSearchTab({
             </div>
             <CategorySelect categories={categories} value={categoryId} onChange={setCategoryId} />
           </div>
-
-          {tags.length > 0 && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">タグ</label>
-              <div className="flex flex-wrap gap-2">
-                {tags.map((tag) => (
-                  <label key={tag.id} className="flex items-center gap-1 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={tagIds.includes(tag.id)}
-                      onChange={() => toggleTag(tag.id)}
-                      className="rounded"
-                    />
-                    <span
-                      className="text-xs px-2 py-0.5 rounded"
-                      style={{ backgroundColor: tag.colorHex ?? '#e5e7eb' }}
-                    >
-                      {tag.name}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">メモ</label>
@@ -414,11 +379,9 @@ function CategorySelect({
 
 function IsbnTab({
   categories,
-  tags,
   onCreated,
 }: {
   categories: Category[]
-  tags: Tag[]
   onCreated: (id: number) => void
 }) {
   const [isbn, setIsbn] = useState('')
@@ -428,7 +391,6 @@ function IsbnTab({
   const [status, setStatus] = useState<BookStatus>('WISHLIST')
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [memo, setMemo] = useState('')
-  const [tagIds, setTagIds] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -472,7 +434,6 @@ function IsbnTab({
         status,
         categoryId: categoryId ? Number(categoryId) : null,
         memo: memo || null,
-        tagIds,
       })
       onCreated(book.id)
     } catch (err: unknown) {
@@ -482,9 +443,6 @@ function IsbnTab({
       setSaving(false)
     }
   }
-
-  const toggleTag = (id: number) =>
-    setTagIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
   const displayIsbn = normalizeIsbnForRequest(isbn)
   const displayIsbn13 = candidate?.isbn13 ?? displayIsbn?.isbn13 ?? null
@@ -553,30 +511,6 @@ function IsbnTab({
             <CategorySelect categories={categories} value={categoryId} onChange={setCategoryId} />
           </div>
 
-          {tags.length > 0 && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">タグ</label>
-              <div className="flex flex-wrap gap-2">
-                {tags.map((tag) => (
-                  <label key={tag.id} className="flex items-center gap-1 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={tagIds.includes(tag.id)}
-                      onChange={() => toggleTag(tag.id)}
-                      className="rounded"
-                    />
-                    <span
-                      className="text-xs px-2 py-0.5 rounded"
-                      style={{ backgroundColor: tag.colorHex ?? '#e5e7eb' }}
-                    >
-                      {tag.name}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">メモ</label>
             <textarea
@@ -604,11 +538,9 @@ function IsbnTab({
 
 function ManualTab({
   categories,
-  tags,
   onCreated,
 }: {
   categories: Category[]
-  tags: Tag[]
   onCreated: (id: number) => void
 }) {
   const [title, setTitle] = useState('')
@@ -619,7 +551,6 @@ function ManualTab({
   const [status, setStatus] = useState<BookStatus>('WISHLIST')
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [memo, setMemo] = useState('')
-  const [tagIds, setTagIds] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -637,7 +568,6 @@ function ManualTab({
         status,
         categoryId: categoryId ? Number(categoryId) : null,
         memo: memo || null,
-        tagIds,
       })
       onCreated(book.id)
     } catch (err: unknown) {
@@ -647,9 +577,6 @@ function ManualTab({
       setSaving(false)
     }
   }
-
-  const toggleTag = (id: number) =>
-    setTagIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -721,30 +648,6 @@ function ManualTab({
         </div>
         <CategorySelect categories={categories} value={categoryId} onChange={setCategoryId} />
       </div>
-
-      {tags.length > 0 && (
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">タグ</label>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <label key={tag.id} className="flex items-center gap-1 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={tagIds.includes(tag.id)}
-                  onChange={() => toggleTag(tag.id)}
-                  className="rounded"
-                />
-                <span
-                  className="text-xs px-2 py-0.5 rounded"
-                  style={{ backgroundColor: tag.colorHex ?? '#e5e7eb' }}
-                >
-                  {tag.name}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div>
         <label className="block text-xs font-medium text-gray-500 mb-1">メモ</label>

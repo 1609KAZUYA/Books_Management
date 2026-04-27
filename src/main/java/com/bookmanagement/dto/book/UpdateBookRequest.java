@@ -6,7 +6,6 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
 
 public record UpdateBookRequest(
         BookStatus status,
@@ -17,7 +16,6 @@ public record UpdateBookRequest(
         LocalDate finishDate,
         @Size(max = 10000) String memo,
         @Size(max = 255) String locationNote,
-        Long categoryId,
-        List<Long> tagIds
+        Long categoryId
 ) {
 }

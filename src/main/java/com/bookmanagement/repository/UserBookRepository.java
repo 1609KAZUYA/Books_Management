@@ -14,13 +14,13 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserBookRepository extends JpaRepository<UserBook, Long>, JpaSpecificationExecutor<UserBook> {
 
-    @EntityGraph(attributePaths = {"bookMaster", "category", "tagLinks", "tagLinks.tag"})
+    @EntityGraph(attributePaths = {"bookMaster", "category"})
     Optional<UserBook> findByIdAndUser_IdAndDeletedAtIsNull(Long id, Long userId);
 
-    @EntityGraph(attributePaths = {"bookMaster", "category", "tagLinks", "tagLinks.tag"})
+    @EntityGraph(attributePaths = {"bookMaster", "category"})
     Optional<UserBook> findByUser_IdAndBookMaster_IdAndDeletedAtIsNull(Long userId, Long bookMasterId);
 
-    @EntityGraph(attributePaths = {"bookMaster", "category", "tagLinks", "tagLinks.tag"})
+    @EntityGraph(attributePaths = {"bookMaster", "category"})
     @Query("""
             select ub
             from UserBook ub
@@ -39,6 +39,6 @@ public interface UserBookRepository extends JpaRepository<UserBook, Long>, JpaSp
     boolean existsByUser_IdAndBookMaster_IdAndDeletedAtIsNull(Long userId, Long bookMasterId);
 
     @Override
-    @EntityGraph(attributePaths = {"bookMaster", "category", "tagLinks", "tagLinks.tag"})
+    @EntityGraph(attributePaths = {"bookMaster", "category"})
     Page<UserBook> findAll(Specification<UserBook> spec, Pageable pageable);
 }
