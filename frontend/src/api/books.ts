@@ -20,7 +20,6 @@ export interface SearchBooksParams {
   status?: BookStatus
   categoryId?: number
   uncategorized?: boolean
-  tagId?: number
   favorite?: boolean
   sort?: string
   page?: number

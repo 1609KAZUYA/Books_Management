@@ -25,7 +25,6 @@ public record CreateBookRequest(
         @DecimalMin("0.5") @DecimalMax("5.0") BigDecimal rating,
         Boolean favoriteFlag,
         @Size(max = 10000) String memo,
-        Long categoryId,
-        List<Long> tagIds
+        Long categoryId
 ) {
 }

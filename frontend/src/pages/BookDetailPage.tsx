@@ -2,19 +2,18 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { deleteBook, getBook, updateBook, updateStatus } from '../api/books'
 import { getCategories } from '../api/categories'
-import { getTags } from '../api/tags'
-import type { BookStatus, Category, Tag, UpdateBookRequest, UserBookDetail } from '../types/api'
+import type { BookStatus, Category, UpdateBookRequest, UserBookDetail } from '../types/api'
 import { BOOK_STATUS_LABELS } from '../types/api'
 import BookStatusBadge from '../components/BookStatusBadge'
 import BookCoverImage from '../components/BookCoverImage'
 import StarRating from '../components/StarRating'
+import { categoryBackground, readableTextColor } from '../utils/color'
 
 export default function BookDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [book, setBook] = useState<UserBookDetail | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
-  const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -27,17 +26,15 @@ export default function BookDetailPage() {
   const [editMemo, setEditMemo] = useState('')
   const [editLocationNote, setEditLocationNote] = useState('')
   const [editCategoryId, setEditCategoryId] = useState<number | ''>('')
-  const [editTagIds, setEditTagIds] = useState<number[]>([])
   const [editPurchaseDate, setEditPurchaseDate] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
   const [editFinishDate, setEditFinishDate] = useState('')
 
   useEffect(() => {
-    Promise.all([getBook(Number(id)), getCategories(), getTags()])
-      .then(([bookData, categoryData, tagsData]) => {
+    Promise.all([getBook(Number(id)), getCategories()])
+      .then(([bookData, categoryData]) => {
         setBook(bookData)
         setCategories(categoryData)
-        setTags(tagsData)
         resetForm(bookData)
       })
       .catch(() => setError('本の情報を読み込めませんでした'))
@@ -51,7 +48,6 @@ export default function BookDetailPage() {
     setEditMemo(b.memo ?? '')
     setEditLocationNote(b.locationNote ?? '')
     setEditCategoryId(b.category?.id ?? '')
-    setEditTagIds(b.tags.map((t) => t.id))
     setEditPurchaseDate(b.purchaseDate ?? '')
     setEditStartDate(b.startDate ?? '')
     setEditFinishDate(b.finishDate ?? '')
@@ -69,7 +65,6 @@ export default function BookDetailPage() {
         memo: editMemo || null,
         locationNote: editLocationNote || null,
         categoryId: editCategoryId ? Number(editCategoryId) : null,
-        tagIds: editTagIds,
         purchaseDate: editPurchaseDate || null,
         startDate: editStartDate || null,
         finishDate: editFinishDate || null,
@@ -105,12 +100,6 @@ export default function BookDetailPage() {
     } catch {
       setError('削除に失敗しました')
     }
-  }
-
-  const toggleTag = (tagId: number) => {
-    setEditTagIds((prev) =>
-      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
-    )
   }
 
   if (loading) {
@@ -279,7 +268,10 @@ export default function BookDetailPage() {
             ) : book.category ? (
               <span
                 className="inline-block px-2 py-0.5 rounded text-xs text-gray-700"
-                style={{ backgroundColor: book.category.colorHex ?? '#e5e7eb' }}
+                style={{
+                  backgroundColor: categoryBackground(book.category.colorHex),
+                  color: readableTextColor(categoryBackground(book.category.colorHex)),
+                }}
               >
                 {book.category.name}
               </span>
@@ -330,48 +322,6 @@ export default function BookDetailPage() {
               />
             ) : (
               <span className="text-sm">{book.finishDate ?? '—'}</span>
-            )}
-          </div>
-
-          {/* Tags */}
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-gray-500 mb-1">タグ</label>
-            {editing ? (
-              <div className="flex flex-wrap gap-2">
-                {tags.map((tag) => (
-                  <label key={tag.id} className="flex items-center gap-1 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editTagIds.includes(tag.id)}
-                      onChange={() => toggleTag(tag.id)}
-                      className="rounded"
-                    />
-                    <span
-                      className="text-xs px-2 py-0.5 rounded"
-                      style={{ backgroundColor: tag.colorHex ?? '#e5e7eb' }}
-                    >
-                      {tag.name}
-                    </span>
-                  </label>
-                ))}
-                {tags.length === 0 && (
-                  <span className="text-sm text-gray-400">タグがありません（タグ管理から追加できます）</span>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-1">
-                {book.tags.length > 0
-                  ? book.tags.map((tag) => (
-                      <span
-                        key={tag.id}
-                        className="text-xs px-2 py-0.5 rounded"
-                        style={{ backgroundColor: tag.colorHex ?? '#e5e7eb' }}
-                      >
-                        {tag.name}
-                      </span>
-                    ))
-                  : <span className="text-sm text-gray-400">—</span>}
-              </div>
             )}
           </div>
 

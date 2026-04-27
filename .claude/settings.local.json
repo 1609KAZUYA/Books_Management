@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(mkdir -p /tmp/design)",
+      "Read(//tmp/**)",
+      "Bash(cp \"C:\\\\Users\\\\yello\\\\.claude\\\\projects\\\\C--Work-Kazuya------------------BookManagement\\\\28b52961-726c-4708-9ae9-ed8bcd1e9c88\\\\tool-results\\\\webfetch-1777271731414-hmwjjj.bin\" design.tar.gz)",
+      "Bash(tar -tzf design.tar.gz)",
+      "Bash(tar -xzf design.tar.gz)",
+      "Bash(cygpath *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:5173/src/pages/LandingPage.tsx\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:5173/src/App.tsx\")",
+      "Bash(curl -s \"http://localhost:5173/src/pages/LandingPage.tsx\")",
+      "Bash(curl -s \"http://localhost:5173/src/App.tsx\")",
+      "Bash(mkdir -p /tmp/design2)",
+      "Bash(cp \"C:\\\\Users\\\\yello\\\\.claude\\\\projects\\\\C--Work-Kazuya------------------BookManagement\\\\28b52961-726c-4708-9ae9-ed8bcd1e9c88\\\\tool-results\\\\webfetch-1777273009449-ba6pu9.bin\" /tmp/design2/d.tar.gz)",
+      "Bash(tar -tzf d.tar.gz)",
+      "Bash(tar -xzf d.tar.gz)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:5174/__TRACKED_VAR__)"
+    ]
+  }
+}

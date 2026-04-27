@@ -42,13 +42,6 @@ export interface LoginResponse {
   user: MeResponse
 }
 
-export interface Tag {
-  id: number
-  name: string
-  colorHex?: string | null
-  sortOrder: number
-}
-
 export interface Category {
   id: number
   name: string
@@ -79,7 +72,6 @@ export interface BookListItem {
   finishDate?: string | null
   updatedAt: string
   category?: Category | null
-  tags: Tag[]
   bookMaster: BookMasterSummary
 }
 
@@ -117,7 +109,6 @@ export interface CreateBookRequest {
   favoriteFlag?: boolean
   memo?: string | null
   categoryId?: number | null
-  tagIds?: number[]
 }
 
 export interface ImportByIsbnRequest {
@@ -125,7 +116,6 @@ export interface ImportByIsbnRequest {
   status: BookStatus
   memo?: string | null
   categoryId?: number | null
-  tagIds?: number[]
 }
 
 export interface UpdateBookRequest {
@@ -138,29 +128,12 @@ export interface UpdateBookRequest {
   memo?: string | null
   locationNote?: string | null
   categoryId?: number | null
-  tagIds?: number[]
 }
 
 export interface UpdateStatusRequest {
   status: BookStatus
   startDate?: string | null
   finishDate?: string | null
-}
-
-export interface CreateTagRequest {
-  name: string
-  colorHex?: string | null
-  sortOrder?: number
-}
-
-export interface UpdateTagRequest {
-  name?: string
-  colorHex?: string | null
-  sortOrder?: number
-}
-
-export interface TagListResponse {
-  items: Tag[]
 }
 
 export interface CreateCategoryRequest {

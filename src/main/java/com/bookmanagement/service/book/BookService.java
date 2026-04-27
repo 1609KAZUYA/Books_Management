@@ -4,10 +4,8 @@ import com.bookmanagement.common.exception.NotFoundException;
 import com.bookmanagement.common.exception.ValidationException;
 import com.bookmanagement.domain.entity.BookMaster;
 import com.bookmanagement.domain.entity.Category;
-import com.bookmanagement.domain.entity.Tag;
 import com.bookmanagement.domain.entity.User;
 import com.bookmanagement.domain.entity.UserBook;
-import com.bookmanagement.domain.entity.UserBookTag;
 import com.bookmanagement.domain.enums.BookStatus;
 import com.bookmanagement.domain.enums.SourceName;
 import com.bookmanagement.dto.book.BookListItemResponse;
@@ -19,16 +17,12 @@ import com.bookmanagement.dto.book.PaginationMetaResponse;
 import com.bookmanagement.dto.book.UpdateBookRequest;
 import com.bookmanagement.dto.book.UpdateStatusRequest;
 import com.bookmanagement.dto.book.UserBookDetailResponse;
-import com.bookmanagement.dto.tag.TagResponse;
 import com.bookmanagement.repository.BookMasterRepository;
-import com.bookmanagement.repository.TagRepository;
 import com.bookmanagement.repository.UserBookRepository;
-import com.bookmanagement.repository.UserBookTagRepository;
 import com.bookmanagement.service.category.CategoryService;
 import com.bookmanagement.service.isbn.BookMetadata;
 import com.bookmanagement.service.isbn.IsbnLookupService;
 import com.bookmanagement.service.isbn.IsbnNormalizer;
-import com.bookmanagement.service.tag.TagService;
 import com.bookmanagement.service.user.UserContextService;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
@@ -37,7 +31,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -58,11 +51,8 @@ public class BookService {
 
     private final UserBookRepository userBookRepository;
     private final BookMasterRepository bookMasterRepository;
-    private final TagRepository tagRepository;
-    private final UserBookTagRepository userBookTagRepository;
     private final UserContextService userContextService;
     private final CategoryService categoryService;
-    private final TagService tagService;
     private final IsbnLookupService isbnLookupService;
     private final IsbnNormalizer isbnNormalizer;
     private final BookCoverService bookCoverService;
@@ -73,7 +63,6 @@ public class BookService {
             BookStatus status,
             Long categoryId,
             Boolean uncategorized,
-            Long tagId,
             Boolean favorite,
             String sort,
             int page,
@@ -87,7 +76,6 @@ public class BookService {
                 .and(byStatus(status))
                 .and(byCategory(categoryId, uncategorized))
                 .and(byFavorite(favorite))
-                .and(byTagId(tagId))
                 .and(byKeyword(keyword));
 
         Page<UserBook> result = userBookRepository.findAll(spec, pageable);
@@ -136,7 +124,6 @@ public class BookService {
         validateDateRange(userBook.getStartDate(), userBook.getFinishDate());
 
         UserBook saved = userBookRepository.save(userBook);
-        replaceTags(saved, user.getId(), request.tagIds());
         return toDetail(userBookRepository.findByIdAndUser_IdAndDeletedAtIsNull(saved.getId(), user.getId())
                 .orElseThrow(() -> new NotFoundException("BOOK-404", "Created book not found")));
     }
@@ -191,7 +178,6 @@ public class BookService {
         userBook.setFavoriteFlag(false);
         userBook.setMemo(request.memo());
         UserBook saved = userBookRepository.save(userBook);
-        replaceTags(saved, user.getId(), request.tagIds());
         return toDetail(userBookRepository.findByIdAndUser_IdAndDeletedAtIsNull(saved.getId(), user.getId())
                 .orElseThrow(() -> new NotFoundException("BOOK-404", "Imported book not found")));
     }
@@ -236,9 +222,6 @@ public class BookService {
         validateDateRange(userBook.getStartDate(), userBook.getFinishDate());
 
         UserBook saved = userBookRepository.save(userBook);
-        if (request.tagIds() != null) {
-            replaceTags(saved, user.getId(), request.tagIds());
-        }
         return toDetail(findUserBookOrThrow(user.getId(), saved.getId()));
     }
 
@@ -271,30 +254,6 @@ public class BookService {
 
         validateDateRange(userBook.getStartDate(), userBook.getFinishDate());
         return toDetail(userBookRepository.save(userBook));
-    }
-
-    @Transactional
-    public void addTag(Long userBookId, Long tagId) {
-        User user = userContextService.requireCurrentUser();
-        UserBook userBook = findUserBookOrThrow(user.getId(), userBookId);
-        Tag tag = tagRepository.findByIdAndUser_Id(tagId, user.getId())
-                .orElseThrow(() -> new NotFoundException("TAG-404", "Tag not found"));
-
-        if (userBookTagRepository.existsByUserBook_IdAndTag_Id(userBook.getId(), tag.getId())) {
-            return;
-        }
-        UserBookTag link = new UserBookTag();
-        link.setUserBook(userBook);
-        link.setTag(tag);
-        userBookTagRepository.save(link);
-    }
-
-    @Transactional
-    public void removeTag(Long userBookId, Long tagId) {
-        User user = userContextService.requireCurrentUser();
-        findUserBookOrThrow(user.getId(), userBookId);
-        userBookTagRepository.findByUserBook_IdAndTag_Id(userBookId, tagId)
-                .ifPresent(userBookTagRepository::delete);
     }
 
     private UserBook findUserBookOrThrow(Long userId, Long userBookId) {
@@ -416,19 +375,6 @@ public class BookService {
         return bookMasterRepository.save(bookMaster);
     }
 
-    private void replaceTags(UserBook userBook, Long userId, List<Long> tagIds) {
-        userBook.getTagLinks().clear();
-        userBookRepository.flush();
-        List<Tag> tags = tagService.resolveTags(userId, tagIds);
-        for (Tag tag : tags) {
-            UserBookTag link = new UserBookTag();
-            link.setUserBook(userBook);
-            link.setTag(tag);
-            userBook.getTagLinks().add(link);
-        }
-        userBookRepository.save(userBook);
-    }
-
     private Specification<UserBook> byUser(Long userId) {
         return (root, query, cb) -> cb.equal(root.get("user").get("id"), userId);
     }
@@ -454,17 +400,6 @@ public class BookService {
                 return cb.conjunction();
             }
             return cb.equal(root.get("category").get("id"), categoryId);
-        };
-    }
-
-    private Specification<UserBook> byTagId(Long tagId) {
-        return (root, query, cb) -> {
-            if (tagId == null) {
-                return cb.conjunction();
-            }
-            query.distinct(true);
-            Join<UserBook, UserBookTag> tagLinks = root.join("tagLinks", JoinType.INNER);
-            return cb.equal(tagLinks.get("tag").get("id"), tagId);
         };
     }
 
@@ -543,7 +478,6 @@ public class BookService {
                 userBook.getFinishDate(),
                 userBook.getUpdatedAt(),
                 categoryService.toResponse(userBook.getCategory()),
-                toTags(userBook),
                 toBookMaster(userBook.getBookMaster()),
                 userBook.getMemo(),
                 userBook.getLocationNote(),
@@ -563,7 +497,6 @@ public class BookService {
                 userBook.getFinishDate(),
                 userBook.getUpdatedAt(),
                 categoryService.toResponse(userBook.getCategory()),
-                toTags(userBook),
                 toBookMaster(userBook.getBookMaster())
         );
     }
@@ -583,11 +516,4 @@ public class BookService {
         );
     }
 
-    private List<TagResponse> toTags(UserBook userBook) {
-        return userBook.getTagLinks().stream()
-                .map(UserBookTag::getTag)
-                .sorted(Comparator.comparingInt(Tag::getSortOrder).thenComparing(Tag::getId))
-                .map(tag -> new TagResponse(tag.getId(), tag.getName(), tag.getColorHex(), tag.getSortOrder()))
-                .toList();
-    }
 }
