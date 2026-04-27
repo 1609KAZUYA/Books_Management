@@ -21,12 +21,14 @@ async function lookupGoogleBooksIsbn(isbn: string): Promise<IsbnLookupResponse> 
   if (sourceCandidates.length === 0) {
     sourceCandidates = await searchGoogleBooks(isbn, 'ISBN', 5)
   }
-  const candidates = (await enrichBookCovers(sourceCandidates))
+  const candidatesWithIsbn = sourceCandidates
     .map((candidate) => ({
       ...candidate,
       isbn13: candidate.isbn13 ?? fallbackIsbn13,
     }))
     .filter((candidate) => candidate.isbn13)
+
+  const candidates = (await enrichBookCovers(candidatesWithIsbn))
     .map((candidate) => ({
       ...candidate,
       isbn13: candidate.isbn13 as string,

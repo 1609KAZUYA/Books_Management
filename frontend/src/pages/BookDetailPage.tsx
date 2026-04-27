@@ -5,6 +5,7 @@ import { getTags } from '../api/tags'
 import type { BookStatus, Tag, UpdateBookRequest, UserBookDetail } from '../types/api'
 import { BOOK_STATUS_LABELS } from '../types/api'
 import BookStatusBadge from '../components/BookStatusBadge'
+import BookCoverImage from '../components/BookCoverImage'
 import StarRating from '../components/StarRating'
 
 export default function BookDetailPage() {
@@ -167,13 +168,12 @@ export default function BookDetailPage() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         {/* Book master info */}
         <div className="flex gap-4 mb-6">
-          {bm.thumbnailUrl ? (
-            <img src={bm.thumbnailUrl} alt={bm.title} className="w-20 h-28 object-cover rounded flex-shrink-0" />
-          ) : (
-            <div className="w-20 h-28 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
-              <span className="text-3xl">📚</span>
-            </div>
-          )}
+          <BookCoverImage
+            book={bm}
+            className="w-20 h-28 object-cover rounded flex-shrink-0"
+            placeholderClassName="w-20 h-28 bg-gray-100 rounded flex items-center justify-center flex-shrink-0"
+            placeholderTextClassName="text-gray-400 text-xs"
+          />
           <div>
             <h1 className="text-xl font-bold text-gray-900">{bm.title}</h1>
             {bm.subtitle && <p className="text-sm text-gray-500 mt-0.5">{bm.subtitle}</p>}

@@ -30,13 +30,14 @@ export async function searchGoogleBooks(
   query: string,
   type: ExternalBookSearchType = 'KEYWORD',
   maxResults = 10,
+  startIndex = 0,
 ) {
   const queries = toGoogleQueries(query, type)
   const results = new Map<string, ExternalBookSearchCandidate>()
 
   for (const googleQuery of queries) {
     const response = await axios.get<GoogleBooksResponse>('/external/google/books/v1/volumes', {
-      params: { q: googleQuery, maxResults },
+      params: { q: googleQuery, maxResults, startIndex },
     })
     for (const item of response.data.items ?? []) {
       const candidate = toCandidate(item)

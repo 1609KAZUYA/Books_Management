@@ -4,10 +4,11 @@ export async function searchNdlBooks(
   query: string,
   type: ExternalBookSearchType = 'KEYWORD',
   maxResults = 10,
+  startIndex = 0,
 ) {
-  const urls = toNdlUrls(query, type, maxResults)
+  const urls = toNdlUrls(query, type, maxResults, startIndex)
   const results = new Map<string, ExternalBookSearchCandidate>()
-  const fallbackIsbn = type === 'ISBN' ? normalizeIsbnParts(query) : null
+  const fallbackIsbn = normalizeIsbnParts(query)
 
   for (const url of urls) {
     const response = await fetch(url)
@@ -28,15 +29,18 @@ export async function searchNdlBooks(
   return [...results.values()].slice(0, maxResults)
 }
 
-function toNdlUrls(query: string, type: ExternalBookSearchType, maxResults: number) {
+function toNdlUrls(query: string, type: ExternalBookSearchType, maxResults: number, startIndex: number) {
   const trimmed = query.trim()
-  const params = new URLSearchParams({ cnt: String(maxResults) })
+  const params = new URLSearchParams({ cnt: String(maxResults), idx: String(startIndex + 1) })
   const urls: string[] = []
   const base = '/external/ndl/api/opensearch'
+  const normalizedIsbn = normalizeIsbnParts(trimmed)
 
-  if (type === 'ISBN') {
-    params.set('isbn', trimmed.replace(/[-\s]/g, ''))
-    return [`${base}?${params.toString()}`]
+  if (normalizedIsbn.isbn13 || normalizedIsbn.isbn10) {
+    const isbnParams = new URLSearchParams(params)
+    isbnParams.set('isbn', normalizedIsbn.isbn13 ?? normalizedIsbn.isbn10 ?? trimmed.replace(/[-\s]/g, ''))
+    urls.push(`${base}?${isbnParams.toString()}`)
+    if (type === 'ISBN') return urls
   }
   if (type === 'TITLE') {
     const titleParams = new URLSearchParams(params)
@@ -74,7 +78,7 @@ function toCandidate(item: Element, fallbackIsbn: NormalizedIsbn | null): Extern
   const isbn = Array.from(item.querySelectorAll('dc\\:identifier'))
     .map((node) => node.textContent?.trim() ?? '')
     .find((value) => value.replace(/[-\s]/g, '').match(/^(97[89])?\d{9}[\dX]$/i))
-  const normalizedIsbn = normalizeIsbnParts(isbn)
+  const normalizedIsbn = normalizeIsbnParts(isbn ?? extractIsbnFromText(text(item, 'description')))
 
   return {
     isbn13: normalizedIsbn.isbn13 ?? fallbackIsbn?.isbn13 ?? null,
@@ -126,6 +130,12 @@ function normalizePublishedDate(value?: string | null) {
 function stripHtml(value?: string | null) {
   if (!value) return null
   return value.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+}
+
+function extractIsbnFromText(value?: string | null) {
+  if (!value) return null
+  const match = value.match(/(?:97[89][-\s]?)?\d[-\s]?\d{2,5}[-\s]?\d{2,7}[-\s]?[\dX]/i)
+  return match?.[0] ?? null
 }
 
 function candidateKey(candidate: ExternalBookSearchCandidate) {

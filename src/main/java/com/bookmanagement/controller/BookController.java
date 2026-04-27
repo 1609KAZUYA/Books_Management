@@ -55,9 +55,10 @@ public class BookController {
     public ExternalBookSearchResponse searchExternalBooks(
             @RequestParam String query,
             @RequestParam(required = false, defaultValue = "KEYWORD") ExternalBookSearchType type,
-            @RequestParam(required = false, defaultValue = "10") @Min(1) @Max(40) int maxResults
+            @RequestParam(required = false, defaultValue = "10") @Min(1) @Max(40) int maxResults,
+            @RequestParam(required = false, defaultValue = "0") @Min(0) int startIndex
     ) {
-        return externalBookSearchService.search(query, type, maxResults);
+        return externalBookSearchService.search(query, type, maxResults, startIndex);
     }
 
     @PostMapping

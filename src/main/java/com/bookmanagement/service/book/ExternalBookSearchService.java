@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -36,24 +37,30 @@ public class ExternalBookSearchService {
     private final RestClient restClient;
     private final BookCoverService bookCoverService;
 
-    public ExternalBookSearchResponse search(String query, ExternalBookSearchType type, int maxResults) {
+    public ExternalBookSearchResponse search(String query, ExternalBookSearchType type, int maxResults, int startIndex) {
         if (!StringUtils.hasText(query)) {
             throw new ValidationException("VALIDATION_ERROR", "query is required");
         }
         ExternalBookSearchType resolvedType = type == null ? ExternalBookSearchType.KEYWORD : type;
         String trimmedQuery = query.trim();
-        List<ExternalBookSearchCandidateResponse> candidates = searchCandidates(trimmedQuery, resolvedType, maxResults);
+        List<ExternalBookSearchCandidateResponse> candidates = searchCandidates(
+                trimmedQuery,
+                resolvedType,
+                maxResults,
+                Math.max(0, startIndex)
+        );
         return new ExternalBookSearchResponse(trimmedQuery, resolvedType, candidates);
     }
 
     private List<ExternalBookSearchCandidateResponse> searchCandidates(
             String query,
             ExternalBookSearchType type,
-            int maxResults
+            int maxResults,
+            int startIndex
     ) {
         Map<String, ExternalBookSearchCandidateResponse> results = new LinkedHashMap<>();
         for (String googleQuery : toGoogleBooksQueries(query, type)) {
-            googleBooksProvider.search(googleQuery, maxResults).stream()
+            googleBooksProvider.search(googleQuery, maxResults, startIndex).stream()
                     .map(this::toResponse)
                     .forEach(candidate -> results.putIfAbsent(candidateKey(candidate), candidate));
             if (results.size() >= maxResults) {
@@ -61,7 +68,8 @@ public class ExternalBookSearchService {
             }
         }
         if (results.isEmpty()) {
-            searchNdl(query, type, maxResults).forEach(candidate -> results.putIfAbsent(candidateKey(candidate), candidate));
+            searchNdl(query, type, maxResults, startIndex)
+                    .forEach(candidate -> results.putIfAbsent(candidateKey(candidate), candidate));
         }
         return new ArrayList<>(results.values()).stream().limit(maxResults).toList();
     }
@@ -101,14 +109,13 @@ public class ExternalBookSearchService {
     private List<ExternalBookSearchCandidateResponse> searchNdl(
             String query,
             ExternalBookSearchType type,
-            int maxResults
+            int maxResults,
+            int startIndex
     ) {
         List<ExternalBookSearchCandidateResponse> candidates = new ArrayList<>();
-        String fallbackIsbn13 = type == ExternalBookSearchType.ISBN
-                ? isbnNormalizer.normalizeToIsbn13(query).orElse(null)
-                : null;
+        String fallbackIsbn13 = isbnNormalizer.normalizeToIsbn13(query).orElse(null);
 
-        for (String uri : toNdlUris(query, type, maxResults)) {
+        for (String uri : toNdlUris(query, type, maxResults, startIndex)) {
             try {
                 String body = restClient.get().uri(uri).retrieve().body(String.class);
                 if (!StringUtils.hasText(body)) {
@@ -125,18 +132,28 @@ public class ExternalBookSearchService {
         return candidates.stream().limit(maxResults).toList();
     }
 
-    private List<String> toNdlUris(String query, ExternalBookSearchType type, int maxResults) {
+    private List<String> toNdlUris(String query, ExternalBookSearchType type, int maxResults, int startIndex) {
         String baseUrl = "https://ndlsearch.ndl.go.jp/api/opensearch";
         List<String> uris = new ArrayList<>();
         UriComponentsBuilder params = UriComponentsBuilder.fromHttpUrl(baseUrl)
-                .queryParam("cnt", maxResults);
+                .queryParam("cnt", maxResults)
+                .queryParam("idx", Math.max(0, startIndex) + 1);
+        isbnNormalizer.normalizeToIsbn13(query).ifPresent(isbn13 -> uris.add(params.cloneBuilder()
+                .queryParam("isbn", isbn13)
+                .build()
+                .encode()
+                .toUriString()));
 
         switch (type) {
-            case ISBN -> uris.add(params.cloneBuilder()
-                    .queryParam("isbn", query.replaceAll("[-\\s]", ""))
-                    .build()
-                    .encode()
-                    .toUriString());
+            case ISBN -> {
+                if (uris.isEmpty()) {
+                    uris.add(params.cloneBuilder()
+                            .queryParam("isbn", query.replaceAll("[-\\s]", ""))
+                            .build()
+                            .encode()
+                            .toUriString());
+                }
+            }
             case TITLE -> {
                 uris.add(params.cloneBuilder().queryParam("title", query).build().encode().toUriString());
                 uris.add(params.cloneBuilder().queryParam("any", query).build().encode().toUriString());
@@ -184,6 +201,9 @@ public class ExternalBookSearchService {
 
         String isbn13 = extractNdlIsbn13(item);
         if (!StringUtils.hasText(isbn13)) {
+            isbn13 = extractIsbn13FromText(firstText(item, "description"));
+        }
+        if (!StringUtils.hasText(isbn13)) {
             isbn13 = fallbackIsbn13;
         }
         String isbn10 = isbnNormalizer.toIsbn10(isbn13).orElse(null);
@@ -212,6 +232,23 @@ public class ExternalBookSearchService {
             String cleaned = value.replaceAll("[-\\s]", "").toUpperCase();
             if (cleaned.matches("^(97[89])?\\d{9}[\\dX]$")) {
                 return isbnNormalizer.normalizeToIsbn13(cleaned).orElse(null);
+            }
+        }
+        return null;
+    }
+
+    private String extractIsbn13FromText(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("(?:97[89][-\\s]?)?\\d[-\\s]?\\d{2,5}[-\\s]?\\d{2,7}[-\\s]?[\\dX]", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(value);
+        while (matcher.find()) {
+            String cleaned = matcher.group().replaceAll("[-\\s]", "").toUpperCase();
+            Optional<String> isbn13 = isbnNormalizer.normalizeToIsbn13(cleaned);
+            if (isbn13.isPresent()) {
+                return isbn13.get();
             }
         }
         return null;

@@ -11,10 +11,7 @@ public class BookCoverService {
         if (StringUtils.hasText(currentThumbnailUrl)) {
             return currentThumbnailUrl;
         }
-        if (!StringUtils.hasText(isbn13) || !isbn13.matches("^\\d{13}$")) {
-            return null;
-        }
-        return "/external/books-image/" + isbn13 + ".jpg";
+        return null;
     }
 
     public BookMetadata withFallbackCover(BookMetadata metadata) {

@@ -277,7 +277,8 @@ public class BookService {
         if (StringUtils.hasText(isbn13)) {
             return bookMasterRepository.findByIsbn13(isbn13)
                     .map(existing -> updateMissingBookMasterFields(existing, request, isbn13))
-                    .or(() -> bookMasterRepository.findFirstByTitleIgnoreCaseAndIsbn13IsNull(request.title().trim())
+                    .or(() -> bookMasterRepository.findRepairableBookMasters(request.title().trim()).stream()
+                            .findFirst()
                             .map(existing -> updateMissingBookMasterFields(existing, request, isbn13)))
                     .orElseGet(() -> createManualBookMaster(request, isbn13));
         }
@@ -325,7 +326,7 @@ public class BookService {
             updated = true;
         }
         String thumbnailUrl = bookCoverService.resolveThumbnailUrl(isbn13, request.thumbnailUrl());
-        if (!StringUtils.hasText(bookMaster.getThumbnailUrl()) && StringUtils.hasText(thumbnailUrl)) {
+        if (shouldUpdateThumbnail(bookMaster.getThumbnailUrl(), thumbnailUrl)) {
             bookMaster.setThumbnailUrl(thumbnailUrl);
             updated = true;
         }
@@ -335,6 +336,19 @@ public class BookService {
         }
         bookMaster.setSourceLastFetchedAt(OffsetDateTime.now());
         return bookMasterRepository.save(bookMaster);
+    }
+
+    private boolean shouldUpdateThumbnail(String currentThumbnailUrl, String requestedThumbnailUrl) {
+        if (!StringUtils.hasText(requestedThumbnailUrl)) {
+            return false;
+        }
+        if (!StringUtils.hasText(currentThumbnailUrl)) {
+            return true;
+        }
+        if (currentThumbnailUrl.equals(requestedThumbnailUrl)) {
+            return false;
+        }
+        return currentThumbnailUrl.startsWith("/external/openlibrary/");
     }
 
     private BookMaster createManualBookMaster(CreateBookRequest request, String isbn13) {

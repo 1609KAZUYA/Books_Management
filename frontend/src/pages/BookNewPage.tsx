@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createBook, searchExternalBooks } from '../api/books'
 import { lookupIsbn } from '../api/isbn'
@@ -21,6 +21,7 @@ const SEARCH_TYPE_OPTIONS: { value: ExternalBookSearchType; label: string }[] = 
   { value: 'AUTHOR', label: '作者' },
   { value: 'ISBN', label: 'ISBN' },
 ]
+const EXTERNAL_SEARCH_PAGE_SIZE = 12
 
 export default function BookNewPage() {
   const navigate = useNavigate()
@@ -93,39 +94,88 @@ function ExternalSearchTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: n
   const [query, setQuery] = useState('')
   const [type, setType] = useState<ExternalBookSearchType>('KEYWORD')
   const [searching, setSearching] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [candidates, setCandidates] = useState<ExternalBookSearchCandidate[]>([])
   const [searchError, setSearchError] = useState('')
+  const [searchedQuery, setSearchedQuery] = useState('')
+  const [searchedType, setSearchedType] = useState<ExternalBookSearchType>('KEYWORD')
+  const [hasMore, setHasMore] = useState(false)
+  const [nextStartIndex, setNextStartIndex] = useState(0)
   const [status, setStatus] = useState<BookStatus>('WISHLIST')
   const [memo, setMemo] = useState('')
   const [tagIds, setTagIds] = useState<number[]>([])
   const [savingKey, setSavingKey] = useState('')
   const [saveError, setSaveError] = useState('')
+  const searchSeqRef = useRef(0)
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
+    const trimmedQuery = query.trim()
+    const currentSeq = searchSeqRef.current + 1
+    searchSeqRef.current = currentSeq
     setSearchError('')
     setSaveError('')
     setCandidates([])
+    setHasMore(false)
+    setNextStartIndex(0)
+    setSearchedQuery(trimmedQuery)
+    setSearchedType(type)
     setSearching(true)
     try {
-      const result = await searchExternalBooks(query, type, 12)
+      const result = await searchExternalBooks(trimmedQuery, type, EXTERNAL_SEARCH_PAGE_SIZE, 0)
+      if (currentSeq !== searchSeqRef.current) return
       setCandidates(result.candidates)
+      setNextStartIndex(EXTERNAL_SEARCH_PAGE_SIZE)
+      setHasMore(canLoadAnotherExternalSearchPage(type, result.candidates.length))
       if (result.candidates.length === 0) {
         setSearchError('条件に一致する本が見つかりませんでした')
       }
     } catch (err: unknown) {
+      if (currentSeq !== searchSeqRef.current) return
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       const detail = (err as { message?: string })?.message
       setSearchError(msg ?? (detail ? `検索に失敗しました: ${detail}` : '検索に失敗しました'))
     } finally {
-      setSearching(false)
+      if (currentSeq === searchSeqRef.current) {
+        setSearching(false)
+      }
+    }
+  }
+
+  const handleLoadMore = async () => {
+    if (!searchedQuery || loadingMore || searching) return
+    const currentSeq = searchSeqRef.current + 1
+    searchSeqRef.current = currentSeq
+    setSearchError('')
+    setSaveError('')
+    setLoadingMore(true)
+    try {
+      const result = await searchExternalBooks(
+        searchedQuery,
+        searchedType,
+        EXTERNAL_SEARCH_PAGE_SIZE,
+        nextStartIndex,
+      )
+      if (currentSeq !== searchSeqRef.current) return
+      setCandidates((current) => mergeCandidates(current, result.candidates))
+      setNextStartIndex((current) => current + EXTERNAL_SEARCH_PAGE_SIZE)
+      setHasMore(canLoadAnotherExternalSearchPage(searchedType, result.candidates.length))
+    } catch (err: unknown) {
+      if (currentSeq !== searchSeqRef.current) return
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      const detail = (err as { message?: string })?.message
+      setSearchError(msg ?? (detail ? `追加検索に失敗しました: ${detail}` : '追加検索に失敗しました'))
+    } finally {
+      if (currentSeq === searchSeqRef.current) {
+        setLoadingMore(false)
+      }
     }
   }
 
   const handleRegister = async (candidate: ExternalBookSearchCandidate, key: string) => {
     setSavingKey(key)
     setSaveError('')
-    const fallbackIsbn = type === 'ISBN' ? normalizeIsbnForRequest(query) : null
+    const fallbackIsbn = normalizeIsbnForRequest(searchedQuery || query)
     const isbn13 = candidate.isbn13 ?? fallbackIsbn?.isbn13 ?? null
     const isbn10 = candidate.isbn10 ?? fallbackIsbn?.isbn10 ?? null
     try {
@@ -136,7 +186,7 @@ function ExternalSearchTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: n
         publisher: candidate.publisher ?? null,
         publishedDate: candidate.publishedDate ?? null,
         description: candidate.description ?? null,
-        thumbnailUrl: candidate.thumbnailUrl ?? coverUrlFromIsbn13(isbn13),
+        thumbnailUrl: candidate.thumbnailUrl ?? null,
         isbn13,
         isbn10,
         status,
@@ -244,10 +294,10 @@ function ExternalSearchTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: n
       {candidates.length > 0 && (
         <div className="space-y-3">
           {candidates.map((candidate, index) => {
-            const fallbackIsbn = type === 'ISBN' ? normalizeIsbnForRequest(query) : null
+            const fallbackIsbn = normalizeIsbnForRequest(searchedQuery || query)
             const displayIsbn13 = candidate.isbn13 ?? fallbackIsbn?.isbn13 ?? null
             const displayIsbn10 = candidate.isbn10 ?? fallbackIsbn?.isbn10 ?? null
-            const displayThumbnailUrl = candidate.thumbnailUrl ?? coverUrlFromIsbn13(displayIsbn13)
+            const displayThumbnailUrl = candidate.thumbnailUrl ?? null
             const key = `${displayIsbn13 ?? candidate.title}-${index}`
             return (
               <div key={key} className="border border-gray-200 rounded-lg p-4">
@@ -257,6 +307,9 @@ function ExternalSearchTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: n
                       src={displayThumbnailUrl}
                       alt={candidate.title}
                       className="w-16 h-24 object-cover rounded bg-gray-100"
+                      onError={(event) => {
+                        event.currentTarget.style.display = 'none'
+                      }}
                     />
                   )}
                   <div className="min-w-0 flex-1">
@@ -280,10 +333,42 @@ function ExternalSearchTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: n
               </div>
             )
           })}
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                disabled={loadingMore || searching}
+                className="border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                {loadingMore ? '読み込み中...' : '次の結果を表示'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
   )
+}
+
+function mergeCandidates(
+  current: ExternalBookSearchCandidate[],
+  incoming: ExternalBookSearchCandidate[],
+) {
+  const merged = new Map<string, ExternalBookSearchCandidate>()
+  current.forEach((candidate) => merged.set(externalCandidateKey(candidate), candidate))
+  incoming.forEach((candidate) => merged.set(externalCandidateKey(candidate), candidate))
+  return [...merged.values()]
+}
+
+function externalCandidateKey(candidate: ExternalBookSearchCandidate) {
+  if (candidate.isbn13) return `isbn13:${candidate.isbn13}`
+  if (candidate.isbn10) return `isbn10:${candidate.isbn10}`
+  return `title:${candidate.title.toLowerCase()}:${candidate.authors.join(',').toLowerCase()}`
+}
+
+function canLoadAnotherExternalSearchPage(type: ExternalBookSearchType, fetchedCount: number) {
+  return type !== 'ISBN' && fetchedCount > 0
 }
 
 function IsbnTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: number) => void }) {
@@ -331,7 +416,7 @@ function IsbnTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: number) => 
         publisher: candidate.publisher ?? null,
         publishedDate: candidate.publishedDate ?? null,
         description: candidate.description ?? null,
-        thumbnailUrl: candidate.thumbnailUrl ?? coverUrlFromIsbn13(isbn13),
+        thumbnailUrl: candidate.thumbnailUrl ?? null,
         isbn13,
         isbn10,
         status,
@@ -353,7 +438,7 @@ function IsbnTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: number) => 
   const displayIsbn = normalizeIsbnForRequest(isbn)
   const displayIsbn13 = candidate?.isbn13 ?? displayIsbn?.isbn13 ?? null
   const displayIsbn10 = candidate?.isbn10 ?? displayIsbn?.isbn10 ?? null
-  const displayThumbnailUrl = candidate?.thumbnailUrl ?? coverUrlFromIsbn13(displayIsbn13)
+  const displayThumbnailUrl = candidate?.thumbnailUrl ?? null
 
   return (
     <div className="space-y-4">
@@ -381,7 +466,14 @@ function IsbnTab({ tags, onCreated }: { tags: Tag[]; onCreated: (id: number) => 
         <div className="border border-gray-200 rounded-lg p-4 space-y-4">
           <div className="flex gap-3">
             {displayThumbnailUrl && (
-              <img src={displayThumbnailUrl} alt={candidate.title} className="w-16 h-24 object-cover rounded" />
+              <img
+                src={displayThumbnailUrl}
+                alt={candidate.title}
+                className="w-16 h-24 object-cover rounded"
+                onError={(event) => {
+                  event.currentTarget.style.display = 'none'
+                }}
+              />
             )}
             <div>
               <p className="font-semibold text-gray-900">{candidate.title}</p>
@@ -638,8 +730,4 @@ function isbn10To13(isbn10: string) {
   }
   const checkDigit = (10 - (sum % 10)) % 10
   return `${body}${checkDigit}`
-}
-
-function coverUrlFromIsbn13(isbn13?: string | null) {
-  return isbn13 ? `/external/books-image/${encodeURIComponent(isbn13)}.jpg` : null
 }

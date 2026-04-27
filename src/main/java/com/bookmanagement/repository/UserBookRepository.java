@@ -25,8 +25,12 @@ public interface UserBookRepository extends JpaRepository<UserBook, Long>, JpaSp
             select ub
             from UserBook ub
             where ub.user.id = :userId
-              and lower(ub.bookMaster.title) = lower(:title)
               and ub.bookMaster.isbn13 is null
+              and (
+                lower(ub.bookMaster.title) = lower(:title)
+                or lower(:title) like concat(lower(ub.bookMaster.title), '%')
+                or lower(ub.bookMaster.title) like concat(lower(:title), '%')
+              )
               and ub.deletedAt is null
             order by ub.id asc
             """)

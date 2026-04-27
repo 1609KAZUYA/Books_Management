@@ -5,6 +5,7 @@ import { getTags } from '../api/tags'
 import type { BookListItem, BookStatus, PaginationMeta, Tag } from '../types/api'
 import { BOOK_STATUS_LABELS } from '../types/api'
 import BookStatusBadge from '../components/BookStatusBadge'
+import BookCoverImage from '../components/BookCoverImage'
 import StarRating from '../components/StarRating'
 
 const SORT_OPTIONS = [
@@ -172,13 +173,11 @@ function BookCard({ book }: { book: BookListItem }) {
       to={`/books/${book.id}`}
       className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow flex gap-3"
     >
-      {bm.thumbnailUrl ? (
-        <img src={bm.thumbnailUrl} alt={bm.title} className="w-14 h-20 object-cover rounded flex-shrink-0" />
-      ) : (
-        <div className="w-14 h-20 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
-          <span className="text-gray-400 text-xs">📚</span>
-        </div>
-      )}
+      <BookCoverImage
+        book={bm}
+        className="w-14 h-20 object-cover rounded flex-shrink-0"
+        placeholderClassName="w-14 h-20 bg-gray-100 rounded flex items-center justify-center flex-shrink-0"
+      />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-gray-900 line-clamp-2">{bm.title}</p>
         {bm.authors.length > 0 && (

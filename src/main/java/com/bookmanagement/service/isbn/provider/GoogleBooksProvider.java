@@ -61,11 +61,16 @@ public class GoogleBooksProvider implements IsbnProvider {
     }
 
     public List<BookMetadata> search(String query, int maxResults) {
+        return search(query, maxResults, 0);
+    }
+
+    public List<BookMetadata> search(String query, int maxResults, int startIndex) {
         try {
             String uri = UriComponentsBuilder
                     .fromHttpUrl(appProperties.getIsbn().getGoogleBooksUrl())
                     .queryParam("q", query)
                     .queryParam("maxResults", maxResults)
+                    .queryParam("startIndex", Math.max(0, startIndex))
                     .build()
                     .encode()
                     .toUriString();

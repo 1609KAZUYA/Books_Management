@@ -29,25 +29,49 @@ export async function enrichBookCovers<T extends ExternalBookSearchCandidate>(ca
   return Promise.all(candidates.map(enrichBookCover))
 }
 
-async function enrichBookCover<T extends ExternalBookSearchCandidate>(candidate: T): Promise<T> {
-  if (candidate.thumbnailUrl) return candidate
+export interface BookCoverLookupInput {
+  isbn13?: string | null
+  isbn10?: string | null
+  title: string
+  thumbnailUrl?: string | null
+}
 
-  const isbn = candidate.isbn13 ?? candidate.isbn10
-  const coverUrl = isbn
-    ? await firstCover([
+export async function lookupBestBookCover(book: BookCoverLookupInput) {
+  const hasInvalidThumbnail = book.thumbnailUrl ? await shouldReplaceThumbnail(book.thumbnailUrl) : false
+  if (book.thumbnailUrl && !hasInvalidThumbnail) {
+    return book.thumbnailUrl
+  }
+
+  const isbn = book.isbn13 ?? book.isbn10
+  return isbn
+    ? firstCover([
         () => lookupOpenBdCover(isbn),
         () => lookupBooksOrJpCover(isbn),
         () => lookupGoogleCover(`isbn:${isbn.replace(/[-\s]/g, '')}`),
         () => lookupOpenLibraryCoverByIsbn(isbn),
-        () => lookupGoogleCover(candidate.title),
-        () => lookupOpenLibraryCoverByTitle(candidate.title),
+        () => lookupGoogleCover(book.title),
+        () => lookupOpenLibraryCoverByTitle(book.title),
       ])
-    : await firstCover([
-        () => lookupGoogleCover(candidate.title),
-        () => lookupOpenLibraryCoverByTitle(candidate.title),
+    : firstCover([
+        () => lookupGoogleCover(book.title),
+        () => lookupOpenLibraryCoverByTitle(book.title),
       ])
+}
 
-  return coverUrl ? { ...candidate, thumbnailUrl: coverUrl } : candidate
+async function enrichBookCover<T extends ExternalBookSearchCandidate>(candidate: T): Promise<T> {
+  const hadThumbnail = Boolean(candidate.thumbnailUrl)
+  const coverUrl = await lookupBestBookCover(candidate)
+  if (coverUrl) {
+    return { ...candidate, thumbnailUrl: coverUrl }
+  }
+  return hadThumbnail ? { ...candidate, thumbnailUrl: null } : candidate
+}
+
+async function shouldReplaceThumbnail(url: string) {
+  if (!url.startsWith('/external/books-image/') && !url.startsWith('/external/openlibrary/')) {
+    return false
+  }
+  return !(await imageExists(url))
 }
 
 async function firstCover(lookups: (() => Promise<string | null>)[]) {
@@ -84,8 +108,12 @@ async function lookupOpenLibraryCoverByTitle(title: string) {
   const response = await fetch(`/external/openlibrary/search.json?${params.toString()}`)
   if (!response.ok) return null
   const data = (await response.json()) as OpenLibrarySearchResponse
-  const coverId = data.docs?.find((doc) => doc.cover_i)?.cover_i
-  return coverId ? `/external/openlibrary/covers/b/id/${coverId}-M.jpg` : null
+  for (const doc of data.docs ?? []) {
+    if (!doc.cover_i) continue
+    const url = `/external/openlibrary/covers/b/id/${doc.cover_i}-M.jpg`
+    if (await imageExists(url)) return url
+  }
+  return null
 }
 
 async function lookupGoogleCover(query: string) {
