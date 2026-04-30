@@ -7,8 +7,10 @@ import {
   updateCategory,
 } from '../api/categories'
 import type { Category } from '../types/api'
-import { EDITORIAL, FONTS, PALETTE_10, shade } from '../styles/editorial'
+import { CATEGORY_PALETTE, EDITORIAL, FONTS, shade } from '../styles/editorial'
 import { categoryBackground, readableTextColor } from '../utils/color'
+
+const DEFAULT_CATEGORY_COLOR = CATEGORY_PALETTE[0]
 
 export default function CategoryManagePage() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -16,14 +18,14 @@ export default function CategoryManagePage() {
   const [error, setError] = useState('')
 
   const [newName, setNewName] = useState('')
-  const [newColor, setNewColor] = useState<string>(PALETTE_10[5])
+  const [newColor, setNewColor] = useState<string>(DEFAULT_CATEGORY_COLOR)
   const [creating, setCreating] = useState(false)
   const [submitHover, setSubmitHover] = useState(false)
   const [paletteHover, setPaletteHover] = useState<number | null>(null)
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
-  const [editColor, setEditColor] = useState<string>(PALETTE_10[0])
+  const [editColor, setEditColor] = useState<string>(DEFAULT_CATEGORY_COLOR)
 
   const reload = () =>
     getCategories()
@@ -43,7 +45,7 @@ export default function CategoryManagePage() {
     try {
       await createCategory({ name: newName.trim(), colorHex: newColor })
       setNewName('')
-      setNewColor(PALETTE_10[5])
+      setNewColor(DEFAULT_CATEGORY_COLOR)
       await reload()
     } catch {
       setError('カテゴリーの追加に失敗しました')
@@ -55,7 +57,7 @@ export default function CategoryManagePage() {
   const startEdit = (category: Category) => {
     setEditingId(category.id)
     setEditName(category.name)
-    setEditColor(category.colorHex ?? PALETTE_10[5])
+    setEditColor(categoryBackground(category.colorHex ?? DEFAULT_CATEGORY_COLOR))
   }
 
   const handleUpdate = async (categoryId: number) => {
@@ -82,7 +84,7 @@ export default function CategoryManagePage() {
   }
 
   return (
-    <div style={{ background: EDITORIAL.paper, color: EDITORIAL.ink }}>
+    <div className="bm-modern-shell" style={{ color: EDITORIAL.ink }}>
       <section style={{ padding: '56px 56px 36px' }}>
         <div
           style={{
@@ -154,13 +156,13 @@ export default function CategoryManagePage() {
         {/* Left: New category form */}
         <form
           onSubmit={handleCreate}
+          className="bm-glass-layer"
           style={{
-            background: EDITORIAL.panel,
-            border: `1px solid ${EDITORIAL.line}`,
             padding: 28,
             alignSelf: 'flex-start',
             position: 'sticky',
             top: 100,
+            borderRadius: 18,
           }}
         >
           <div
@@ -245,8 +247,14 @@ export default function CategoryManagePage() {
             >
               カラー · COLOR
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
-              {PALETTE_10.map((c, i) => {
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(8, minmax(0, 1fr))',
+                gap: 8,
+              }}
+            >
+              {CATEGORY_PALETTE.map((c, i) => {
                 const selected = newColor === c
                 return (
                   <button
@@ -258,6 +266,7 @@ export default function CategoryManagePage() {
                     aria-label={`カラー ${c}`}
                     style={{
                       width: '100%',
+                      minWidth: 0,
                       aspectRatio: '1',
                       borderRadius: '50%',
                       background: c,
@@ -267,7 +276,7 @@ export default function CategoryManagePage() {
                         : '2px solid transparent',
                       outline: selected ? `2px solid ${c}40` : 'none',
                       outlineOffset: 3,
-                      transform: paletteHover === i ? 'scale(1.12)' : 'scale(1)',
+                      transform: paletteHover === i ? 'scale(1.1)' : 'scale(1)',
                       transition: 'all 0.18s',
                       padding: 0,
                     }}
@@ -353,13 +362,14 @@ export default function CategoryManagePage() {
         {/* Right: Existing categories */}
         <div>
           <div
+            className="bm-glass-layer"
             style={{
               display: 'flex',
               alignItems: 'flex-end',
               justifyContent: 'space-between',
-              paddingBottom: 14,
+              padding: '18px 20px',
               marginBottom: 8,
-              borderBottom: `2px solid ${EDITORIAL.ink}`,
+              borderRadius: 18,
               flexWrap: 'wrap',
               gap: 12,
             }}
@@ -527,7 +537,7 @@ function CategoryRow({
   onDelete,
 }: CategoryRowProps) {
   const [hover, setHover] = useState(false)
-  const color = categoryBackground(category.colorHex ?? '#8a7a6c')
+  const color = categoryBackground(category.colorHex ?? DEFAULT_CATEGORY_COLOR)
   const textColor = readableTextColor(color)
 
   return (
@@ -574,19 +584,19 @@ function CategoryRow({
             }}
           />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {PALETTE_10.map((c) => (
+            {CATEGORY_PALETTE.map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => onEditColorChange(c)}
                 aria-label={`カラー ${c}`}
                 style={{
-                  width: 18,
-                  height: 18,
+                  width: 22,
+                  height: 22,
                   borderRadius: '50%',
                   background: c,
                   border:
-                    editColor === c
+                    categoryBackground(editColor) === c
                       ? `2px solid ${EDITORIAL.ink}`
                       : '2px solid transparent',
                   cursor: 'pointer',
@@ -622,19 +632,34 @@ function CategoryRow({
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span
           style={{
-            width: 36,
-            height: 12,
+            width: 44,
+            height: 18,
             background: color,
             border: `1px solid ${shade(color, -10)}`,
             display: 'inline-block',
           }}
         />
-        <span style={{ fontFamily: FONTS.mono, fontSize: 11, color: EDITORIAL.inkMuted }}>
-          {color.toUpperCase()}
-        </span>
+        <span
+          style={{
+            width: 22,
+            height: 18,
+            background: shade(color, 16),
+            border: `1px solid ${shade(color, 4)}`,
+            display: 'inline-block',
+          }}
+        />
+        <span
+          style={{
+            width: 22,
+            height: 18,
+            background: shade(color, -12),
+            border: `1px solid ${shade(color, -18)}`,
+            display: 'inline-block',
+          }}
+        />
       </div>
 
       <div
@@ -674,7 +699,7 @@ function IconBtn({
   danger?: boolean
 }) {
   const [hover, setHover] = useState(false)
-  const baseColor = danger ? '#a83a2a' : EDITORIAL.inkSoft
+  const baseColor = danger ? '#8a4d47' : EDITORIAL.inkSoft
   return (
     <button
       type="button"

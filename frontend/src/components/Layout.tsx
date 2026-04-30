@@ -27,9 +27,9 @@ export default function Layout() {
 
   return (
     <div
+      className="bm-modern-shell"
       style={{
         minHeight: '100vh',
-        background: EDITORIAL.paper,
         color: EDITORIAL.ink,
         fontFamily: FONTS.sans,
         WebkitFontSmoothing: 'antialiased',
@@ -77,16 +77,18 @@ function AppHeader({ user, onLogout }: AppHeaderProps) {
 
   return (
     <header
+      className="bm-glass-layer"
       style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '20px 56px',
-        borderBottom: `1px solid ${EDITORIAL.line}`,
-        background: EDITORIAL.paper,
+        border: 'none',
         position: 'sticky',
         top: 0,
         zIndex: 10,
+        margin: '14px 18px 0',
+        borderRadius: 18,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 44 }}>
@@ -186,7 +188,8 @@ function AppHeader({ user, onLogout }: AppHeaderProps) {
           onMouseEnter={() => setLogoutHover(true)}
           onMouseLeave={() => setLogoutHover(false)}
           style={{
-            padding: '7px 14px',
+            minHeight: 42,
+            padding: '0 16px',
             background: 'transparent',
             border: `1px solid ${logoutHover ? EDITORIAL.ink : EDITORIAL.line}`,
             color: logoutHover ? EDITORIAL.ink : EDITORIAL.inkSoft,
@@ -207,8 +210,11 @@ function AppHeader({ user, onLogout }: AppHeaderProps) {
 
 function navLinkStyle(active: boolean): CSSProperties {
   return {
-    display: 'inline-block',
-    padding: '8px 14px',
+    display: 'inline-flex',
+    minHeight: 42,
+    padding: '0 16px',
+    alignItems: 'center',
+    justifyContent: 'center',
     background: 'transparent',
     color: active ? EDITORIAL.ink : EDITORIAL.inkSoft,
     fontFamily: FONTS.serif,

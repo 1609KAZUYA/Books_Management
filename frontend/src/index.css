@@ -34,6 +34,28 @@
   }
 }
 
+@keyframes bm-aurora-pan {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes bm-metric-breathe {
+  0%,
+  100% {
+    box-shadow: 0 18px 42px -34px rgba(79, 127, 247, 0.48);
+  }
+  50% {
+    box-shadow: 0 26px 62px -32px rgba(255, 122, 89, 0.36);
+  }
+}
+
 .bm-atmosphere {
   position: fixed;
   inset: 0;
@@ -70,14 +92,97 @@
   position: absolute;
   inset: -24px;
   background-image:
-    linear-gradient(rgba(42, 32, 26, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(42, 32, 26, 0.05) 1px, transparent 1px);
+    linear-gradient(rgba(79, 127, 247, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 122, 89, 0.05) 1px, transparent 1px);
   background-size: 44px 44px, 44px 44px;
   animation: bm-grain-shift 18s linear infinite alternate;
 }
 
+.bm-modern-shell {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255, 122, 89, 0.22), transparent 28%),
+    radial-gradient(circle at 82% 10%, rgba(155, 114, 242, 0.2), transparent 30%),
+    radial-gradient(circle at 70% 76%, rgba(47, 191, 122, 0.16), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(231, 240, 255, 0.9)),
+    linear-gradient(120deg, rgba(79, 127, 247, 0.16), rgba(255, 122, 89, 0.16), rgba(47, 191, 122, 0.14));
+  background-size: auto, 220% 220%;
+  animation: bm-aurora-pan 16s ease-in-out infinite;
+}
+
+.bm-glass-layer {
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(79, 127, 247, 0.14);
+  box-shadow:
+    0 28px 68px -42px rgba(79, 127, 247, 0.46),
+    0 14px 34px -34px rgba(255, 122, 89, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(20px) saturate(1.28);
+}
+
+.bm-dashboard-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.bm-dashboard-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(115deg, rgba(79, 127, 247, 0.2), transparent 34%),
+    linear-gradient(245deg, rgba(255, 122, 89, 0.18), transparent 38%),
+    radial-gradient(circle at 72% 22%, rgba(47, 191, 122, 0.16), transparent 30%),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.38), transparent 46%);
+}
+
+.bm-action-tile {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.bm-action-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 52px -34px rgba(38, 35, 31, 0.48);
+}
+
+.bm-action-tile::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--tile-accent, #4f79a0);
+}
+
+.bm-metric-card {
+  animation: bm-metric-breathe 6s ease-in-out infinite;
+}
+
+.bm-tactile {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.bm-tactile:hover {
+  transform: translateY(-2px);
+}
+
+.bm-tactile:active {
+  transform: translateY(0) scale(0.99);
+}
+
 :where(a, button, input, select, textarea):focus-visible {
-  outline: 2px solid rgba(166, 91, 48, 0.85);
+  outline: 2px solid rgba(79, 121, 160, 0.86);
   outline-offset: 3px;
 }
 
@@ -87,9 +192,9 @@
   padding: 22px;
   border: 1px solid rgba(42, 32, 26, 0.11);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.52), rgba(244, 237, 224, 0.78)),
-    rgba(250, 247, 240, 0.92);
-  box-shadow: 0 16px 38px -32px rgba(42, 32, 26, 0.45);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(231, 240, 255, 0.82)),
+    rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 38px -32px rgba(79, 127, 247, 0.45);
   transition:
     transform 220ms ease,
     border-color 220ms ease,
@@ -98,8 +203,8 @@
 
 .bm-bento-stat:hover {
   transform: translateY(-2px);
-  border-color: rgba(166, 91, 48, 0.3);
-  box-shadow: 0 24px 46px -34px rgba(42, 32, 26, 0.55);
+  border-color: rgba(255, 122, 89, 0.32);
+  box-shadow: 0 24px 46px -34px rgba(255, 122, 89, 0.44);
 }
 
 .bm-bento-stat--wide {
@@ -159,7 +264,9 @@
 
   .bm-atmosphere__grain,
   .bm-atmosphere__strip,
-  .bm-float-book {
+  .bm-float-book,
+  .bm-modern-shell,
+  .bm-metric-card {
     animation: none !important;
   }
 
@@ -171,5 +278,9 @@
 @media (max-width: 720px) {
   .bm-bento-stat--wide {
     grid-column: span 1;
+  }
+
+  .bm-dashboard-hero {
+    border-radius: 14px;
   }
 }

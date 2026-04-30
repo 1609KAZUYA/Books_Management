@@ -10,10 +10,10 @@ export default function StarRating({ rating, onChange, readonly = false }: StarR
   if (readonly) {
     if (!rating) return <span className="text-gray-400 text-sm">未評価</span>
     return (
-      <span className="text-yellow-400 text-sm">
+      <span style={{ color: '#8a6f43', fontSize: 14 }}>
         {'★'.repeat(Math.floor(rating))}
         {rating % 1 === 0.5 ? '½' : ''}
-        <span className="text-gray-300">{'★'.repeat(5 - Math.ceil(rating))}</span>
+        <span style={{ color: '#c9c4b8' }}>{'★'.repeat(5 - Math.ceil(rating))}</span>
         <span className="ml-1 text-gray-600 text-xs">{rating}</span>
       </span>
     )

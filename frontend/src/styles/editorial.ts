@@ -1,14 +1,14 @@
 export const EDITORIAL = {
-  paper: '#f4ede0',
-  paperDeep: '#ebe2cf',
-  paperSoft: '#faf5ea',
+  paper: '#f7fbff',
+  paperDeep: '#e7f0ff',
+  paperSoft: '#ffffff',
   panel: '#ffffff',
-  ink: '#2a201a',
-  inkSoft: '#5b4a3c',
-  inkMuted: '#8a7a6c',
-  line: 'rgba(42,32,26,0.16)',
-  lineSoft: 'rgba(42,32,26,0.08)',
-  accent: '#8a3a1f',
+  ink: '#182033',
+  inkSoft: '#4f5f73',
+  inkMuted: '#7b8798',
+  line: 'rgba(24,32,51,0.14)',
+  lineSoft: 'rgba(24,32,51,0.08)',
+  accent: '#4f7ff7',
 } as const
 
 export const FONTS = {
@@ -18,27 +18,51 @@ export const FONTS = {
 } as const
 
 export const STATUS_INK: Record<string, string> = {
-  WISHLIST: '#7a5ac2',
-  PURCHASED: '#3a5a8a',
+  WISHLIST: '#9b72f2',
+  PURCHASED: '#4f7ff7',
   READING: EDITORIAL.accent,
-  FINISHED: '#5a8a6a',
-  ON_HOLD: '#a8743a',
-  DROPPED: '#a83a2a',
-  TSUNDOKU: '#a8743a',
+  FINISHED: '#2fbf7a',
+  ON_HOLD: '#d99a2b',
+  DROPPED: '#cf5d6f',
+  TSUNDOKU: '#ff7a59',
 }
 
-export const PALETTE_10 = [
-  '#c14a4a',
-  '#d68a3a',
-  '#d6c43a',
-  '#5aa56a',
-  '#3aa5a5',
-  EDITORIAL.accent,
-  '#7a5ac2',
-  '#c46aa5',
-  '#7a4a3a',
-  '#3a3a3a',
+export const CATEGORY_PALETTE = [
+  '#4f7ff7',
+  '#3b9df5',
+  '#2aa7c9',
+  '#25a6a1',
+  '#28a979',
+  '#63a64f',
+  '#97a83e',
+  '#c29a35',
+  '#df8736',
+  '#ff7a59',
+  '#ef6b73',
+  '#dc6c94',
+  '#c870b6',
+  '#aa72d9',
+  '#8b78ea',
+  '#687eea',
+  '#5d8bb7',
+  '#4b9aa6',
+  '#46a88e',
+  '#76a66a',
+  '#a39d55',
+  '#c08a58',
+  '#d9786d',
+  '#d16e89',
+  '#b872a7',
+  '#9277c5',
+  '#6f82c9',
+  '#5b91b8',
+  '#5a9b9a',
+  '#779c7b',
+  '#9b8f6f',
+  '#7e8a9a',
 ] as const
+
+export const PALETTE_10 = CATEGORY_PALETTE
 
 export function shade(hex: string, pct: number): string {
   if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return hex
@@ -51,7 +75,7 @@ export function shade(hex: string, pct: number): string {
   return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')
 }
 
-export function hashColor(seed: string, palette: readonly string[] = PALETTE_10): string {
+export function hashColor(seed: string, palette: readonly string[] = CATEGORY_PALETTE): string {
   let h = 0
   for (let i = 0; i < seed.length; i++) {
     h = (h * 31 + seed.charCodeAt(i)) >>> 0

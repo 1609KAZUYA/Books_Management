@@ -96,7 +96,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div style={{ ...pageStyle, position: 'relative', overflow: 'hidden' }}>
+    <div className="bm-modern-shell" style={{ ...pageStyle, background: undefined, position: 'relative', overflow: 'hidden' }}>
       <ScrollProgressBar />
       <EditorialAtmosphere />
       <header
@@ -172,7 +172,7 @@ export default function RegisterPage() {
               marginBottom: 26,
             }}
           >
-            ── BEGIN YOUR LIBRARY · FIRST SHELF ──
+            ── START READING MOMENTUM · FIRST SHELF ──
           </div>
           <h1
             style={{
@@ -184,9 +184,9 @@ export default function RegisterPage() {
               letterSpacing: 0,
             }}
           >
-            本棚を、
+            積読を、
             <br />
-            <span style={{ fontStyle: 'italic', color: C.accent }}>つくる。</span>
+            <span style={{ fontStyle: 'italic', color: C.accent }}>動かす。</span>
           </h1>
           <p
             style={{
@@ -197,8 +197,8 @@ export default function RegisterPage() {
               margin: '0 0 42px',
             }}
           >
-            読みたい本、積んでいる本、これから出会う一冊。
-            まずは小さな本棚を作って、読書の記録を静かに積み重ねていきましょう。
+            読みたい本、途中で止まった本、ふと思い出した一冊。
+            登録した瞬間から、次に読む本が選びやすい読書ダッシュボードが始まります。
           </p>
           <RegisterShelfPreview />
         </section>
@@ -206,12 +206,10 @@ export default function RegisterPage() {
 
         <Reveal delay={120}>
         <section
-          className="bm-hover-sheen"
+          className="bm-glass-layer bm-hover-sheen"
           style={{
-            background: C.panel,
-            border: `1px solid ${C.line}`,
             padding: 32,
-            boxShadow: '0 24px 60px -28px rgba(42,32,26,0.28)',
+            borderRadius: 18,
           }}
         >
           <div style={{ paddingBottom: 20, marginBottom: 24, borderBottom: `1px solid ${C.line}` }}>
@@ -293,6 +291,7 @@ export default function RegisterPage() {
                 borderRadius: 2,
                 background: loading ? C.inkMuted : C.ink,
                 color: C.paper,
+                minHeight: 48,
                 padding: '14px 20px',
                 fontFamily: FONTS.sans,
                 fontSize: 14,
@@ -330,9 +329,9 @@ function RegisterShelfPreview() {
   // 登録までの流れを本の背表紙風に見せる装飾です。
   // 実際の登録処理とは関係しない、画面デザイン用の固定表示です。
   const steps = [
-    { title: 'PROFILE', sub: 'Your name', color: '#3a5a4a', width: '72%' },
+    { title: 'PROFILE', sub: 'Your name', color: '#2fbf7a', width: '72%' },
     { title: 'ACCOUNT', sub: 'Email and password', color: C.accent, width: '90%' },
-    { title: 'SHELF', sub: 'Start tracking books', color: '#3a4a6a', width: '78%' },
+    { title: 'MOMENTUM', sub: 'Pick your next read', color: '#ff7a59', width: '78%' },
   ]
 
   return (

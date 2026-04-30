@@ -88,7 +88,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ ...pageStyle, position: 'relative', overflow: 'hidden' }}>
+    <div className="bm-modern-shell" style={{ ...pageStyle, background: undefined, position: 'relative', overflow: 'hidden' }}>
       <ScrollProgressBar />
       <EditorialAtmosphere />
       <header
@@ -164,7 +164,7 @@ export default function LoginPage() {
               marginBottom: 26,
             }}
           >
-            ── WELCOME BACK · YOUR LIBRARY ──
+            ── WELCOME BACK · NEXT READ IS WAITING ──
           </div>
           <h1
             style={{
@@ -176,7 +176,7 @@ export default function LoginPage() {
               letterSpacing: 0,
             }}
           >
-            本棚に、
+            今日の一冊へ、
             <br />
             <span style={{ fontStyle: 'italic', color: C.accent }}>戻る。</span>
           </h1>
@@ -189,8 +189,8 @@ export default function LoginPage() {
               margin: '0 0 42px',
             }}
           >
-            読みかけの本、積んである本、読み終えた本。
-            Books Memo の静かな本棚へログインして、今日の一冊を整理できます。
+            読みかけの本を進める。積読から一冊選ぶ。
+            Books Memo に戻ると、次に読みたい本がすぐ見つかります。
           </p>
           <LoginShelfPreview />
         </section>
@@ -198,12 +198,10 @@ export default function LoginPage() {
 
         <Reveal delay={120}>
         <section
-          className="bm-hover-sheen"
+          className="bm-glass-layer bm-hover-sheen"
           style={{
-            background: C.panel,
-            border: `1px solid ${C.line}`,
             padding: 32,
-            boxShadow: '0 24px 60px -28px rgba(42,32,26,0.28)',
+            borderRadius: 18,
           }}
         >
           <div style={{ paddingBottom: 20, marginBottom: 24, borderBottom: `1px solid ${C.line}` }}>
@@ -269,6 +267,7 @@ export default function LoginPage() {
                 borderRadius: 2,
                 background: loading ? C.inkMuted : C.ink,
                 color: C.paper,
+                minHeight: 48,
                 padding: '14px 20px',
                 fontFamily: FONTS.sans,
                 fontSize: 14,
@@ -290,6 +289,7 @@ export default function LoginPage() {
                 borderRadius: 2,
                 background: 'transparent',
                 color: C.inkSoft,
+                minHeight: 48,
                 padding: '13px 20px',
                 fontFamily: FONTS.sans,
                 fontSize: 14,
@@ -336,9 +336,9 @@ function LoginShelfPreview() {
   // 画面左側に表示している装飾用の本棚プレビューです。
   // 実データではなく、ログイン画面の雰囲気を合わせるための固定表示です。
   const books = [
-    { title: 'READING', color: C.accent, width: '74%' },
-    { title: 'TSUNDOKU', color: '#a8743a', width: '88%' },
-    { title: 'FINISHED', color: '#5a8a6a', width: '68%' },
+    { title: 'NEXT READ', color: C.accent, width: '74%' },
+    { title: 'TSUNDOKU', color: '#ff7a59', width: '88%' },
+    { title: 'FINISHED', color: '#2fbf7a', width: '68%' },
   ]
 
   return (

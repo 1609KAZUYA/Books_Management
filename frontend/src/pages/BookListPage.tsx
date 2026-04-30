@@ -8,6 +8,7 @@ import { BOOK_STATUS_LABELS } from '../types/api'
 import EditorialBookCover from '../components/EditorialBookCover'
 import { Reveal } from '../components/Motion'
 import { EDITORIAL, FONTS, STATUS_INK, hashColor } from '../styles/editorial'
+import { categoryBackground } from '../utils/color'
 
 const SORT_OPTIONS = [
   { value: 'updatedAtDesc', label: '更新日順', en: 'Recent' },
@@ -32,6 +33,10 @@ const STATUS_FILTERS: {
   { key: 'DROPPED', jp: '中断', en: 'Dropped' },
 ]
 
+function isBookStatus(value: string | null): value is BookStatus {
+  return STATUS_FILTERS.some((filter) => filter.key === value && filter.key !== 'all')
+}
+
 // 本棚一覧画面です。
 //
 // この画面では大きく3つのことをしています。
@@ -54,6 +59,7 @@ interface BookShelfSummary {
 export default function BookListPage() {
   // URLの ?categoryId=1 のような検索条件を読み書きするためのHookです。
   const [searchParams, setSearchParams] = useSearchParams()
+  const initialStatus = searchParams.get('status')
 
   // APIから取得した表示データを保存するstateです。
   const [books, setBooks] = useState<BookListItem[]>([])
@@ -66,7 +72,9 @@ export default function BookListPage() {
   // 画面上の検索条件を保存するstateです。
   const [keyword, setKeyword] = useState('')
   const [inputKeyword, setInputKeyword] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | BookStatus>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | BookStatus>(
+    isBookStatus(initialStatus) ? initialStatus : 'all',
+  )
   const [categoryFilter, setCategoryFilter] = useState(
     searchParams.get('uncategorized') ? 'uncategorized' : searchParams.get('categoryId') ?? '',
   )
@@ -83,7 +91,7 @@ export default function BookListPage() {
     setLoadingShelves(true)
     Promise.all([
       ...categories.map((category) =>
-        searchBooks({ categoryId: category.id, size: 5, sort: 'updatedAtDesc' }).then((data) => ({
+        searchBooks({ categoryId: category.id, size: 3, sort: 'updatedAtDesc' }).then((data) => ({
           key: `category:${category.id}`,
           label: category.name,
           href: `/books?categoryId=${category.id}`,
@@ -92,11 +100,11 @@ export default function BookListPage() {
           previewBooks: data.items,
         })),
       ),
-      searchBooks({ uncategorized: true, size: 5, sort: 'updatedAtDesc' }).then((data) => ({
+      searchBooks({ uncategorized: true, size: 3, sort: 'updatedAtDesc' }).then((data) => ({
         key: 'uncategorized',
         label: '未分類',
         href: '/books?uncategorized=1',
-        colorHex: '#8a7a6c',
+        colorHex: '#756654',
         totalItems: data.meta.totalItems,
         previewBooks: data.items,
       })),
@@ -114,6 +122,8 @@ export default function BookListPage() {
       ? 'uncategorized'
       : searchParams.get('categoryId') ?? ''
     setCategoryFilter(nextCategory)
+    const nextStatus = searchParams.get('status')
+    setStatusFilter(isBookStatus(nextStatus) ? nextStatus : 'all')
     setPage(1)
   }, [searchParams])
 
@@ -182,7 +192,7 @@ export default function BookListPage() {
     .filter((b) => b.status === 'TSUNDOKU').length
 
   return (
-    <div style={{ background: EDITORIAL.paper, color: EDITORIAL.ink }}>
+    <div className="bm-modern-shell" style={{ color: EDITORIAL.ink }}>
       {/* Page header */}
       <section style={{ padding: '56px 56px 36px' }}>
         <Reveal>
@@ -195,15 +205,16 @@ export default function BookListPage() {
               marginBottom: 20,
             }}
           >
-            ── ISSUE {totalBooks || '—'} · YOUR LIBRARY ──
+            ── {totalBooks || '—'} BOOKS · FIND YOUR NEXT READ ──
           </div>
           <div
             style={{
               display: 'flex',
-              alignItems: 'flex-end',
+              alignItems: 'center',
               justifyContent: 'space-between',
               marginBottom: 8,
               gap: 24,
+              flexWrap: 'wrap',
             }}
           >
             <h1
@@ -230,7 +241,7 @@ export default function BookListPage() {
               </span>
             </h1>
             <Link to="/books/new" style={{ textDecoration: 'none' }}>
-              <PrimaryButton label="+ 本を追加  Add a book" />
+              <PrimaryButton label="+ 読みたい本を追加  Add a next read" />
             </Link>
           </div>
           {(activeCategory || categoryFilter === 'uncategorized') && (
@@ -255,11 +266,12 @@ export default function BookListPage() {
               </Link>
             </div>
           )}
-          <StatStrip
+          <LibraryPulse
             total={totalBooks}
             finished={finishedCount}
             reading={readingCount}
             stack={stackCount}
+            categories={categories.length}
           />
         </Reveal>
       </section>
@@ -268,15 +280,13 @@ export default function BookListPage() {
       <section style={{ padding: '0 56px 36px' }}>
         <Reveal delay={80}>
         <div
-          className="bm-hover-sheen"
+          className="bm-glass-layer bm-hover-sheen"
           style={{
-            background: EDITORIAL.panel,
-            border: `1px solid ${EDITORIAL.line}`,
-            padding: 20,
+            padding: 24,
             display: 'grid',
-            gridTemplateColumns: '1fr auto',
-            gap: 20,
-            alignItems: 'center',
+            gridTemplateColumns: 'minmax(280px, 1fr)',
+            gap: 18,
+            alignItems: 'stretch',
           }}
         >
           <form
@@ -286,7 +296,8 @@ export default function BookListPage() {
               alignItems: 'center',
               gap: 14,
               borderBottom: `1px solid ${EDITORIAL.ink}`,
-              paddingBottom: 8,
+              minHeight: 52,
+              padding: '4px 0 8px',
             }}
           >
             <span style={{ fontSize: 18, color: EDITORIAL.inkSoft }}>⌕</span>
@@ -300,7 +311,7 @@ export default function BookListPage() {
                 border: 'none',
                 outline: 'none',
                 background: 'transparent',
-                fontSize: 16,
+                fontSize: 17,
                 color: EDITORIAL.ink,
                 fontFamily: FONTS.serif,
                 fontStyle: inputKeyword ? 'normal' : 'italic',
@@ -310,20 +321,22 @@ export default function BookListPage() {
               type="submit"
               style={{
                 fontFamily: FONTS.mono,
-                fontSize: 10,
-                color: EDITORIAL.inkMuted,
+                minHeight: 42,
+                fontSize: 11,
+                color: EDITORIAL.ink,
                 letterSpacing: '0.1em',
-                padding: '3px 10px',
-                border: `1px solid ${EDITORIAL.line}`,
-                background: 'transparent',
+                padding: '0 16px',
+                border: `1px solid ${EDITORIAL.ink}`,
+                background: EDITORIAL.paperSoft,
                 cursor: 'pointer',
-                borderRadius: 0,
+                borderRadius: 2,
+                fontWeight: 700,
               }}
             >
               SEARCH
             </button>
           </form>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
             {STATUS_FILTERS.map((f) => (
               <FilterChip
                 key={f.key}
@@ -334,6 +347,13 @@ export default function BookListPage() {
                 onClick={() => {
                   setStatusFilter(f.key)
                   setPage(1)
+                  const next = new URLSearchParams(searchParams)
+                  if (f.key === 'all') {
+                    next.delete('status')
+                  } else {
+                    next.set('status', f.key)
+                  }
+                  setSearchParams(next, { replace: true })
                 }}
               />
             ))}
@@ -395,71 +415,194 @@ export default function BookListPage() {
   )
 }
 
-function StatStrip({
+function LibraryPulse({
   total,
   finished,
   reading,
   stack,
+  categories,
 }: {
   total: number
   finished: number
   reading: number
   stack: number
+  categories: number
 }) {
+  const completion = total > 0 ? Math.min(100, Math.round((finished / total) * 100)) : 0
+  const focusLabel =
+    reading > 0
+      ? '読みかけに戻って、今日の10ページを進める'
+      : stack > 0
+        ? '積読から、今の気分に合う1冊を選ぶ'
+        : '読みたい本を登録して、最初の棚を育てる'
+
   return (
     <div
+      className="bm-dashboard-hero bm-glass-layer"
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 24,
-        marginTop: 18,
-        paddingTop: 18,
-        borderTop: `1px solid ${EDITORIAL.line}`,
-        flexWrap: 'wrap',
+        marginTop: 26,
+        padding: 22,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
+        gap: 14,
+        alignItems: 'stretch',
       }}
     >
-      <Stat label="登録冊数" value={total} valueColor={EDITORIAL.ink} />
-      <Divider />
-      <Stat label="読了" value={finished} valueColor={STATUS_INK.FINISHED} italic />
-      <Divider />
-      <Stat label="読書中" value={reading} valueColor={STATUS_INK.READING} italic />
-      <Divider />
-      <Stat label="積読" value={stack} valueColor={STATUS_INK.TSUNDOKU} italic />
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          padding: 22,
+          borderRadius: 14,
+          background: EDITORIAL.ink,
+          color: EDITORIAL.paper,
+          minHeight: 162,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          overflow: 'hidden',
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontFamily: FONTS.mono,
+              fontSize: 10,
+              letterSpacing: '0.16em',
+              color: 'rgba(246,244,239,0.64)',
+              marginBottom: 10,
+            }}
+          >
+            READING MOMENTUM
+          </div>
+          <div style={{ fontFamily: FONTS.serif, fontSize: 36, lineHeight: 1.1 }}>
+            積読を、読みたい気持ちに変える
+          </div>
+          <div
+            style={{
+              color: 'rgba(246,244,239,0.72)',
+              fontSize: 14,
+              marginTop: 8,
+              lineHeight: 1.55,
+            }}
+          >
+            {focusLabel}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
+          <QuickAction to="/books/new" label="読みたい本を追加" en="Add spark" accent={STATUS_INK.TSUNDOKU} />
+          <QuickAction to="/books?status=TSUNDOKU" label="積読を見る" en="Pick one" accent={STATUS_INK.FINISHED} />
+        </div>
+      </div>
+      <PulseMetric label="読みたい候補" en="Books" value={total} accent={EDITORIAL.accent} />
+      <PulseMetric label="読了の達成感" en="Finished" value={`${completion}%`} accent={STATUS_INK.FINISHED} />
+      <PulseMetric label="気分で選べる棚" en="Shelves" value={categories} accent={STATUS_INK.WISHLIST} />
     </div>
   )
 }
 
-function Stat({
+function PulseMetric({
   label,
+  en,
   value,
-  valueColor,
-  italic,
+  accent,
 }: {
   label: string
-  value: number
-  valueColor: string
-  italic?: boolean
+  en: string
+  value: number | string
+  accent: string
 }) {
   return (
-    <span style={{ fontSize: 14, color: EDITORIAL.inkSoft }}>
-      {label}{' '}
-      <span
+    <div
+      className="bm-metric-card bm-action-tile"
+      style={{
+        '--tile-accent': accent,
+        position: 'relative',
+        zIndex: 1,
+        padding: '20px 20px 18px 24px',
+        borderRadius: 14,
+        background: 'rgba(255,255,255,0.78)',
+        border: `1px solid ${EDITORIAL.lineSoft}`,
+        minHeight: 162,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+      } as CSSProperties}
+    >
+      <div
         style={{
-          fontFamily: FONTS.serif,
-          fontSize: 22,
-          color: valueColor,
-          fontWeight: 500,
-          fontStyle: italic ? 'italic' : 'normal',
+          fontFamily: FONTS.mono,
+          fontSize: 10,
+          color: EDITORIAL.inkMuted,
+          letterSpacing: '0.14em',
         }}
       >
-        {value}
-      </span>
-    </span>
+        {en.toUpperCase()}
+      </div>
+      <div>
+        <div
+          style={{
+            fontFamily: FONTS.serif,
+            fontSize: 46,
+            color: accent,
+            fontWeight: 500,
+            letterSpacing: '-0.03em',
+            lineHeight: 1,
+          }}
+        >
+          {value}
+        </div>
+        <div style={{ marginTop: 8, fontSize: 13, color: EDITORIAL.inkSoft }}>{label}</div>
+      </div>
+    </div>
   )
 }
 
-function Divider() {
-  return <span style={{ width: 1, height: 18, background: EDITORIAL.line }} />
+function QuickAction({
+  to,
+  label,
+  en,
+  accent,
+}: {
+  to: string
+  label: string
+  en: string
+  accent: string
+}) {
+  return (
+    <Link
+      to={to}
+      className="bm-tactile"
+      style={{
+        minHeight: 42,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '0 14px',
+        borderRadius: 999,
+        background: 'rgba(246,244,239,0.12)',
+        border: '1px solid rgba(246,244,239,0.2)',
+        color: EDITORIAL.paper,
+        textDecoration: 'none',
+        fontSize: 13,
+        fontWeight: 700,
+      }}
+    >
+      <span
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          background: accent,
+          boxShadow: `0 0 16px ${accent}cc`,
+        }}
+      />
+      {label}
+      <span style={{ fontFamily: FONTS.serif, fontStyle: 'italic', opacity: 0.68 }}>
+        · {en}
+      </span>
+    </Link>
+  )
 }
 
 function PrimaryButton({ label }: { label: string }) {
@@ -509,12 +652,13 @@ function FilterChip({
       type="button"
       onClick={onClick}
       style={{
-        padding: '7px 14px',
+        minHeight: 42,
+        padding: '0 16px',
         borderRadius: 999,
         background: active ? EDITORIAL.ink : 'transparent',
         color: active ? EDITORIAL.paper : EDITORIAL.inkSoft,
         border: `1px solid ${active ? EDITORIAL.ink : EDITORIAL.line}`,
-        fontSize: 12,
+        fontSize: 13,
         cursor: 'pointer',
         display: 'inline-flex',
         alignItems: 'center',
@@ -564,12 +708,13 @@ function SelectChip({
     position: 'relative',
     display: 'inline-flex',
     alignItems: 'center',
-    padding: '7px 28px 7px 14px',
+    minHeight: 42,
+    padding: '0 34px 0 16px',
     borderRadius: 999,
     background: 'transparent',
     color: EDITORIAL.inkSoft,
     border: `1px solid ${EDITORIAL.line}`,
-    fontSize: 12,
+    fontSize: 13,
     cursor: 'pointer',
     whiteSpace: 'nowrap',
     flexShrink: 0,
@@ -656,7 +801,7 @@ function ShelvesOverview({
   return (
     <div>
       {shelves.map((shelf, si) => {
-        const accent = shelf.colorHex ?? hashColor(shelf.label)
+        const accent = categoryBackground(shelf.colorHex ?? hashColor(shelf.label))
         const category = categories.find((c) => `category:${c.id}` === shelf.key)
         return (
           <Reveal key={shelf.key} delay={Math.min(si * 70, 280)}>
@@ -744,21 +889,29 @@ function ShelfSection({
           </span>
         </div>
         <Link
+          className="bm-hover-sheen"
           to={shelf.href}
           style={{
-            fontFamily: FONTS.serif,
-            fontStyle: 'italic',
-            fontSize: 14,
-            color: accent,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 44,
+            padding: '0 16px',
+            fontFamily: FONTS.sans,
+            fontSize: 13,
+            fontWeight: 700,
+            color: EDITORIAL.paper,
+            background: accent,
             textDecoration: 'none',
-            borderBottom: `1px solid ${accent}40`,
+            border: `1px solid ${accent}`,
+            borderRadius: 2,
           }}
         >
-          すべて見る  See all  →
+          View all →
         </Link>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
         {shelf.previewBooks.map((book) => (
           <BookCard key={book.id} book={book} shelfColor={accent} />
         ))}
@@ -776,10 +929,10 @@ function FlatBookGrid({
   categories: Category[]
 }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 18 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
       {books.map((book) => {
         const cat = book.category ?? categories.find((c) => c.id === book.category?.id)
-        const shelfColor = cat?.colorHex ?? hashColor(book.bookMaster.title)
+        const shelfColor = categoryBackground(cat?.colorHex ?? hashColor(book.bookMaster.title))
         return <BookCard key={book.id} book={book} shelfColor={shelfColor} />
       })}
     </div>
@@ -791,99 +944,111 @@ function BookCard({ book, shelfColor }: { book: BookListItem; shelfColor: string
   const statusColor = STATUS_INK[book.status] ?? EDITORIAL.inkSoft
   return (
     <Link
-      className="bm-hover-sheen"
+      className="bm-hover-sheen bm-tactile"
       to={`/books/${book.id}`}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
         background: EDITORIAL.panel,
-        border: `1px solid ${EDITORIAL.line}`,
-        padding: 16,
+        border: `1px solid ${hover ? shelfColor : EDITORIAL.line}`,
+        padding: 14,
         cursor: 'pointer',
         transition: 'all 0.25s ease',
         transform: hover ? 'translateY(-3px)' : 'none',
-        boxShadow: hover ? '0 14px 30px -10px rgba(42,32,26,0.25)' : 'none',
+        boxShadow: hover ? '0 16px 34px -16px rgba(42,32,26,0.32)' : '0 4px 16px -16px rgba(42,32,26,0.3)',
         position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
+        display: 'grid',
+        gridTemplateColumns: '72px minmax(0, 1fr)',
+        gap: 14,
+        alignItems: 'start',
         textDecoration: 'none',
         color: EDITORIAL.ink,
+        minHeight: 144,
       }}
     >
-      <div style={{ marginBottom: 14 }}>
-        <EditorialBookCover book={book.bookMaster} baseColor={shelfColor} />
+      <div style={{ width: 72 }}>
+        <EditorialBookCover
+          book={book.bookMaster}
+          baseColor={shelfColor}
+          width={72}
+          height={108}
+          aspectRatio="auto"
+          showTitle={false}
+        />
       </div>
-      <div
-        style={{
-          fontFamily: FONTS.serif,
-          fontSize: 14,
-          fontWeight: 500,
-          lineHeight: 1.3,
-          marginBottom: 4,
-          color: EDITORIAL.ink,
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        }}
-      >
-        {book.bookMaster.title}
-      </div>
-      {book.bookMaster.authors.length > 0 && (
+      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 108 }}>
         <div
           style={{
-            fontSize: 11,
-            color: EDITORIAL.inkSoft,
-            fontStyle: 'italic',
             fontFamily: FONTS.serif,
-            marginBottom: 10,
+            fontSize: 15,
+            fontWeight: 600,
+            lineHeight: 1.35,
+            marginBottom: 5,
+            color: EDITORIAL.ink,
             display: '-webkit-box',
-            WebkitLineClamp: 1,
+            WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
           }}
         >
-          {book.bookMaster.authors.join(', ')}
+          {book.bookMaster.title}
         </div>
-      )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'auto' }}>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            fontSize: 10,
-            color: statusColor,
-            fontFamily: FONTS.mono,
-            letterSpacing: '0.08em',
-          }}
-        >
-          <span
+        {book.bookMaster.authors.length > 0 && (
+          <div
             style={{
-              width: 5,
-              height: 5,
-              borderRadius: '50%',
-              background: statusColor,
-            }}
-          />
-          {BOOK_STATUS_LABELS[book.status].toUpperCase()}
-        </span>
-        {book.favoriteFlag && (
-          <span style={{ color: EDITORIAL.accent, fontSize: 12 }}>♥</span>
-        )}
-        {typeof book.rating === 'number' && book.rating > 0 && (
-          <span
-            style={{
-              fontFamily: FONTS.mono,
-              fontSize: 10,
-              color: EDITORIAL.inkMuted,
-              marginLeft: 'auto',
-              letterSpacing: '0.06em',
+              fontSize: 12,
+              color: EDITORIAL.inkSoft,
+              fontStyle: 'italic',
+              fontFamily: FONTS.serif,
+              marginBottom: 12,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
             }}
           >
-            ★ {book.rating.toFixed(1)}
-          </span>
+            {book.bookMaster.authors.join(', ')}
+          </div>
         )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              fontSize: 10,
+              color: statusColor,
+              fontFamily: FONTS.mono,
+              letterSpacing: '0.08em',
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: statusColor,
+              }}
+            />
+            {BOOK_STATUS_LABELS[book.status].toUpperCase()}
+          </span>
+          {book.favoriteFlag && (
+            <span style={{ color: EDITORIAL.accent, fontSize: 12 }}>♥</span>
+          )}
+          {typeof book.rating === 'number' && book.rating > 0 && (
+            <span
+              style={{
+                fontFamily: FONTS.mono,
+                fontSize: 10,
+                color: EDITORIAL.inkMuted,
+                marginLeft: 'auto',
+                letterSpacing: '0.06em',
+              }}
+            >
+              ★ {book.rating.toFixed(1)}
+            </span>
+          )}
+        </div>
       </div>
     </Link>
   )
@@ -893,21 +1058,21 @@ function AddBookCard({ accent }: { accent: string }) {
   const [hover, setHover] = useState(false)
   return (
     <Link
-      className="bm-hover-sheen"
+      className="bm-hover-sheen bm-tactile"
       to="/books/new"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
         background: 'transparent',
-        border: `1px dashed ${EDITORIAL.line}`,
-        minHeight: 280,
+        border: `1px dashed ${hover ? accent : EDITORIAL.line}`,
+        minHeight: 144,
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'column',
         gap: 8,
-        color: hover ? accent : EDITORIAL.inkMuted,
+        color: hover ? accent : EDITORIAL.inkSoft,
         transition: 'all 0.2s',
         transform: hover ? 'translateY(-2px)' : 'none',
         textDecoration: 'none',
@@ -980,7 +1145,8 @@ function PageBtn({
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding: '7px 16px',
+        minHeight: 44,
+        padding: '0 18px',
         background: 'transparent',
         border: `1px solid ${EDITORIAL.line}`,
         color: disabled ? EDITORIAL.inkMuted : EDITORIAL.ink,

@@ -25,6 +25,9 @@ const navLinkStyle: CSSProperties = {
   cursor: 'pointer',
   transition: 'color 0.2s',
   borderBottom: '1px solid transparent',
+  minHeight: 44,
+  display: 'inline-flex',
+  alignItems: 'center',
 }
 
 export default function LandingPage() {
@@ -32,9 +35,13 @@ export default function LandingPage() {
   const [hovered, setHovered] = useState<string | null>(null)
   const goLogin = () => navigate('/login')
   const goRegister = () => navigate('/register')
+  const goBooks = () => navigate('/books')
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
-    <div style={{ ...baseStyle, position: 'relative', overflow: 'hidden' }}>
+    <div className="bm-modern-shell" style={{ ...baseStyle, background: undefined, position: 'relative', overflow: 'hidden' }}>
       <ScrollProgressBar />
       <EditorialAtmosphere />
       <div
@@ -48,12 +55,15 @@ export default function LandingPage() {
       >
         {/* Top bar */}
         <header
+          className="bm-glass-layer"
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '24px 64px',
-            borderBottom: `1px solid ${C.line}`,
+            border: 'none',
+            borderRadius: 18,
+            margin: '14px 18px 0',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
@@ -78,20 +88,30 @@ export default function LandingPage() {
               EST. 2026
             </span>
           </div>
-          <nav style={{ display: 'flex', gap: 36, fontSize: 14, color: C.inkSoft }}>
-            {['Features 機能', 'How it works 使い方', 'Log in ログイン'].map(
-              (t) => (
-                <a
-                  key={t}
-                  style={navLinkStyle}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = C.ink)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = C.inkSoft)}
-                  onClick={t.startsWith('Log') ? goLogin : undefined}
-                >
-                  {t}
-                </a>
-              ),
-            )}
+          <nav style={{ display: 'flex', gap: 22, fontSize: 14, color: C.inkSoft }}>
+            {[
+              { label: 'Features 機能', action: () => scrollToSection('features') },
+              { label: 'How it works 使い方', action: () => scrollToSection('how-it-works') },
+              { label: 'Log in ログイン', action: goLogin },
+            ].map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                style={{
+                  ...navLinkStyle,
+                  border: 'none',
+                  background: 'transparent',
+                  padding: '0 4px',
+                  fontFamily: SANS,
+                  fontSize: 14,
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = C.ink)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = C.inkSoft)}
+                onClick={item.action}
+              >
+                {item.label}
+              </button>
+            ))}
           </nav>
           <button
             type="button"
@@ -101,6 +121,7 @@ export default function LandingPage() {
             style={{
               background: hovered === 'cta-top' ? C.ink : C.accent,
               color: C.paper,
+              minHeight: 44,
               padding: '11px 22px',
               borderRadius: 2,
               fontSize: 13,
@@ -112,7 +133,7 @@ export default function LandingPage() {
               transition: 'all 0.25s ease',
             }}
           >
-            無料ではじめる →
+            読書を動かす →
           </button>
         </header>
 
@@ -128,7 +149,7 @@ export default function LandingPage() {
                 marginBottom: 32,
               }}
             >
-              VOL. 01 — A QUIET PLACE FOR YOUR BOOKS
+              VOL. 01 — TURN YOUR STACK INTO MOMENTUM
             </div>
           </Reveal>
 
@@ -153,12 +174,12 @@ export default function LandingPage() {
                 }}
               >
                 <span style={{ fontStyle: 'italic', fontWeight: 300 }}>積読</span>
-                も、
+                を、
                 <br />
-                <span style={{ fontStyle: 'italic', fontWeight: 300 }}>読</span>
-                みかけも、
+                <span style={{ fontStyle: 'italic', fontWeight: 300 }}>読みたい</span>
+                に変える。
                 <br />
-                ぜんぶ <span style={{ color: C.accent, fontStyle: 'italic' }}>一望。</span>
+                次の一冊が <span style={{ color: C.accent, fontStyle: 'italic' }}>見つかる。</span>
               </h1>
               <p
                 style={{
@@ -169,8 +190,8 @@ export default function LandingPage() {
                   lineHeight: 1.7,
                 }}
               >
-                本と過ごす時間を、ひとつの本棚に。Books Memoは、読書家のための静かな書斎。
-                読了した本も、まだ読みかけの一冊も、ジャンルごとに整理して心地よく見渡せます。
+                Books Memoは、積んだままの本を「今日読みたい一冊」に変える読書ダッシュボード。
+                進捗、カテゴリー、気になる本が明るく並び、開くたびに少し読み進めたくなります。
               </p>
               <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                 <button
@@ -181,6 +202,7 @@ export default function LandingPage() {
                   style={{
                     background: C.ink,
                     color: C.paper,
+                    minHeight: 48,
                     padding: '16px 32px',
                     borderRadius: 2,
                     fontSize: 15,
@@ -196,7 +218,7 @@ export default function LandingPage() {
                     transition: 'all 0.25s ease',
                   }}
                 >
-                  無料で本棚をつくる →
+                  積読を減らしはじめる →
                 </button>
                 <span
                   style={{
@@ -206,13 +228,13 @@ export default function LandingPage() {
                     letterSpacing: '0.05em',
                   }}
                 >
-                  Free forever · No card required
+                  Find your next read · Build reading momentum
                 </span>
               </div>
             </Reveal>
 
-            <Reveal delay={180} style={{ position: 'relative', height: 480 }}>
-              <BookStack />
+            <Reveal delay={180} style={{ position: 'relative', height: 410 }}>
+              <BookStack onViewAll={goBooks} />
             </Reveal>
           </div>
         </section>
@@ -275,14 +297,14 @@ export default function LandingPage() {
         </section>
 
         {/* Feature 01 — Shelf */}
-        <section style={{ padding: '120px 64px', borderBottom: `1px solid ${C.line}` }}>
+        <section id="features" style={{ padding: '120px 64px', borderBottom: `1px solid ${C.line}` }}>
           <Reveal>
             <FeatureRow
               number="01"
               eyebrow="THE SHELF"
-              title="本棚 — 一目でわかる、自分だけの書庫"
-              subtitle="Your library, at a glance"
-              body="ビジネス、PC、小説——ジャンルごとに区切られた本棚で、所有している本が一望できます。表紙を眺めるだけで、次に読みたい一冊が自然と手に取れる。"
+              title="今日読む本が、すぐ決まる"
+              subtitle="Make the next book obvious"
+              body="登録した本を状態ごとに見える化。読みかけ、積読、読了が並ぶことで、どこから手をつければいいか迷わず選べます。"
               visual={<ShelfPreview />}
             />
           </Reveal>
@@ -290,6 +312,7 @@ export default function LandingPage() {
 
         {/* Feature 02 — Categories */}
         <section
+          id="how-it-works"
           style={{
             padding: '120px 64px',
             borderBottom: `1px solid ${C.line}`,
@@ -300,9 +323,9 @@ export default function LandingPage() {
             <FeatureRow
               number="02"
               eyebrow="CATEGORIES"
-              title="カテゴリー管理 — 色で分ける、心で分ける"
-              subtitle="Organize by feel, not just by topic"
-              body="自由に作れるカテゴリーには、好きな色を添えて。背表紙のように並んだラベルが、本棚に小さなリズムを生みます。"
+              title="読みたい気分で、棚をひらく"
+              subtitle="Organize by energy and mood"
+              body="仕事、学び、物語、癒し。カテゴリーの色が気分の入口になり、忘れていた読みたい本を自然に思い出せます。"
               visual={<CategoryPreview />}
               flip
             />
@@ -315,9 +338,9 @@ export default function LandingPage() {
             <FeatureRow
               number="03"
               eyebrow="DISCOVERY"
-              title="検索とフィルター — あの一冊が、すぐそこに"
-              subtitle="Find any book in seconds"
-              body="タイトル・著者・ISBNから、ステータスや更新日まで。膨大な蔵書の中から、いま読みたい本にすぐ辿り着けます。"
+              title="また読みたい本に、すぐ会える"
+              subtitle="Rediscover books at the right moment"
+              body="タイトル・著者・ISBN・ステータスで素早く検索。過去に気になった一冊や、途中で止まっていた本へすぐ戻れます。"
               visual={<SearchPreview />}
             />
           </Reveal>
@@ -355,9 +378,9 @@ export default function LandingPage() {
                 margin: '0 0 28px',
               }}
             >
-              今日読んだ一冊が、
+              今日の10ページが、
               <br />
-              <span style={{ fontStyle: 'italic' }}>明日のあなたを</span>つくる。
+              <span style={{ fontStyle: 'italic' }}>積読を読みたい本</span>に変える。
             </h2>
             <p
               style={{
@@ -369,7 +392,8 @@ export default function LandingPage() {
                 lineHeight: 1.7,
               }}
             >
-              無料ではじめられます。クレジットカード不要で、登録後すぐに本棚を作成できます。
+              読みたい本が見つかる、読みかけに戻れる、読了が増えていく。
+              登録後すぐに、自分だけの読書ダッシュボードを作れます。
             </p>
           </Reveal>
           <button
@@ -381,6 +405,7 @@ export default function LandingPage() {
               background: hovered === 'cta-end' ? C.paper : C.accent,
               color: hovered === 'cta-end' ? C.ink : C.paper,
               padding: '20px 44px',
+              minHeight: 56,
               borderRadius: 2,
               fontSize: 16,
               fontWeight: 500,
@@ -391,7 +416,7 @@ export default function LandingPage() {
               transition: 'all 0.3s ease',
             }}
           >
-            無料ではじめる  Start free  →
+            読書ダッシュボードを作る  Start reading  →
           </button>
         </section>
 
@@ -491,16 +516,14 @@ function FeatureRow({ number, eyebrow, title, subtitle, body, visual, flip }: Fe
   )
 }
 
-function BookStack() {
+function BookStack({ onViewAll }: { onViewAll: () => void }) {
   const [tilt, setTilt] = useState({ x: 0, y: 0 })
   const books = [
-    { w: 280, h: 56, color: '#3a4a5a', label: 'BUSINESS · 24' },
-    { w: 300, h: 64, color: C.accent, label: 'NOVELS · 31' },
-    { w: 264, h: 52, color: '#6b5d3f', label: 'TECH · 18' },
-    { w: 320, h: 60, color: '#2a3a3a', label: 'PHILOSOPHY · 12' },
-    { w: 290, h: 70, color: '#7a3a2a', label: 'HISTORY · 9' },
+    { w: 246, h: 54, color: '#2fbf7a', label: 'FINISHED · 38' },
+    { w: 268, h: 58, color: '#ff7a59', label: 'TSUNDOKU · 12' },
+    { w: 232, h: 52, color: C.accent, label: 'NEXT READ · 3' },
   ]
-  let y = 420
+  let y = 302
   return (
     <div
       onMouseMove={(e) => {
@@ -521,7 +544,7 @@ function BookStack() {
       }}
     >
       {books.map((b, i) => {
-        y -= b.h + 4
+        y -= b.h + 6
         const rotate = `${i % 2 === 0 ? -0.4 : 0.4}deg`
         return (
           <div
@@ -556,24 +579,48 @@ function BookStack() {
       <div
         style={{
           position: 'absolute',
-          left: 0,
-          right: 0,
-          top: 422,
+          left: '8%',
+          right: '8%',
+          top: 306,
           height: 6,
           background: C.ink,
           opacity: 0.3,
         }}
       />
+      <button
+        type="button"
+        onClick={onViewAll}
+        className="bm-hover-sheen"
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: 336,
+          transform: 'translateX(-50%)',
+          minHeight: 48,
+          minWidth: 178,
+          padding: '0 22px',
+          border: `1px solid ${C.ink}`,
+          background: C.paperSoft,
+          color: C.ink,
+          fontFamily: SANS,
+          fontSize: 14,
+          fontWeight: 700,
+          cursor: 'pointer',
+          boxShadow: '0 14px 30px -18px rgba(42,32,26,0.4)',
+        }}
+      >
+        次の一冊を探す →
+      </button>
     </div>
   )
 }
 
 function ShelfPreview() {
   const cats = [
-    { name: 'ビジネス', en: 'Business', count: 24, color: '#3a5a4a' },
-    { name: '小説', en: 'Fiction', count: 31, color: C.accent },
-    { name: 'PC', en: 'Tech', count: 18, color: '#3a4a6a' },
-    { name: '哲学', en: 'Philosophy', count: 12, color: '#5a4a3a' },
+    { name: 'ビジネス', en: 'Business', count: 24, color: '#4f7ff7' },
+    { name: '小説', en: 'Fiction', count: 31, color: '#dc6c94' },
+    { name: 'PC', en: 'Tech', count: 18, color: '#25a6a1' },
+    { name: '哲学', en: 'Philosophy', count: 12, color: '#9b72f2' },
   ]
   return (
     <div
@@ -660,12 +707,12 @@ function ShelfPreview() {
 
 function CategoryPreview() {
   const cats = [
-    { name: 'ビジネス', en: 'Business', color: '#3a5a4a', count: 24 },
-    { name: '小説', en: 'Fiction', color: C.accent, count: 31 },
-    { name: 'PC', en: 'Tech', color: '#3a4a6a', count: 18 },
-    { name: '哲学', en: 'Philosophy', color: '#5a4a3a', count: 12 },
-    { name: 'デザイン', en: 'Design', color: '#6a4a5a', count: 8 },
-    { name: '歴史', en: 'History', color: '#7a4a2a', count: 9 },
+    { name: 'ビジネス', en: 'Business', color: '#4f7ff7', count: 24 },
+    { name: '小説', en: 'Fiction', color: '#dc6c94', count: 31 },
+    { name: 'PC', en: 'Tech', color: '#25a6a1', count: 18 },
+    { name: '哲学', en: 'Philosophy', color: '#9b72f2', count: 12 },
+    { name: 'デザイン', en: 'Design', color: '#ff7a59', count: 8 },
+    { name: '歴史', en: 'History', color: '#2fbf7a', count: 9 },
   ]
   return (
     <div
@@ -751,14 +798,14 @@ function SearchPreview() {
       title: '嫌われる勇気',
       author: '岸見一郎 / 古賀史健',
       cat: 'ビジネス',
-      col: '#3a5a4a',
+      col: '#4f7ff7',
       s: '読了',
     },
     {
       title: 'LPIC 1 教科書 + 問題集',
       author: '中島 能和',
       cat: 'PC',
-      col: '#3a4a6a',
+      col: '#25a6a1',
       s: '読書中',
     },
     { title: '変な絵', author: '雨穴', cat: '小説', col: C.accent, s: '積読' },
