@@ -27,7 +27,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health
 
 logging:
   pattern:
@@ -42,3 +42,13 @@ app:
   jwt:
     secret: ${JWT_SECRET:booksMemo-development-jwt-secret-key-for-HS256-algorithm-32bytes}
     expiry-seconds: ${JWT_EXPIRY_SECONDS:86400}
+    issuer: ${JWT_ISSUER:books-memo-api}
+    audience: ${JWT_AUDIENCE:books-memo-web}
+    allowed-clock-skew-seconds: ${JWT_ALLOWED_CLOCK_SKEW_SECONDS:30}
+  security:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+    login-rate-limit:
+      max-failures: ${LOGIN_RATE_LIMIT_MAX_FAILURES:5}
+      window: ${LOGIN_RATE_LIMIT_WINDOW:PT15M}
+      lockout: ${LOGIN_RATE_LIMIT_LOCKOUT:PT15M}

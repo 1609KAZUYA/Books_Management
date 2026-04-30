@@ -6,6 +6,7 @@ import { getCategories } from '../api/categories'
 import type { BookListItem, BookStatus, Category, PaginationMeta } from '../types/api'
 import { BOOK_STATUS_LABELS } from '../types/api'
 import EditorialBookCover from '../components/EditorialBookCover'
+import { Reveal } from '../components/Motion'
 import { EDITORIAL, FONTS, STATUS_INK, hashColor } from '../styles/editorial'
 
 const SORT_OPTIONS = [
@@ -31,6 +32,16 @@ const STATUS_FILTERS: {
   { key: 'DROPPED', jp: '中断', en: 'Dropped' },
 ]
 
+// 本棚一覧画面です。
+//
+// この画面では大きく3つのことをしています。
+// 1. APIから本とカテゴリを取得する
+// 2. 検索条件・絞り込み条件をstateで管理する
+// 3. 取得した本を本棚風のUIとして表示する
+//
+// LaravelでいうControllerの処理はバックエンド側にあり、
+// このファイルはBladeテンプレート + JavaScriptの画面制御に近い役割です。
+
 interface BookShelfSummary {
   key: string
   label: string
@@ -41,7 +52,10 @@ interface BookShelfSummary {
 }
 
 export default function BookListPage() {
+  // URLの ?categoryId=1 のような検索条件を読み書きするためのHookです。
   const [searchParams, setSearchParams] = useSearchParams()
+
+  // APIから取得した表示データを保存するstateです。
   const [books, setBooks] = useState<BookListItem[]>([])
   const [meta, setMeta] = useState<PaginationMeta | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
@@ -49,6 +63,7 @@ export default function BookListPage() {
   const [loading, setLoading] = useState(false)
   const [loadingShelves, setLoadingShelves] = useState(false)
 
+  // 画面上の検索条件を保存するstateです。
   const [keyword, setKeyword] = useState('')
   const [inputKeyword, setInputKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | BookStatus>('all')
@@ -59,10 +74,12 @@ export default function BookListPage() {
   const [page, setPage] = useState(1)
 
   useEffect(() => {
+    // 画面を開いた直後にカテゴリ一覧を取得します。
     getCategories().then(setCategories).catch(() => {})
   }, [])
 
   useEffect(() => {
+    // カテゴリごとの「本棚プレビュー」を作るため、各カテゴリの本を少しずつ取得します。
     setLoadingShelves(true)
     Promise.all([
       ...categories.map((category) =>
@@ -92,6 +109,7 @@ export default function BookListPage() {
   }, [categories])
 
   useEffect(() => {
+    // URLの検索条件が変わったら、画面側のカテゴリ選択状態も合わせます。
     const nextCategory = searchParams.get('uncategorized')
       ? 'uncategorized'
       : searchParams.get('categoryId') ?? ''
@@ -100,6 +118,7 @@ export default function BookListPage() {
   }, [searchParams])
 
   useEffect(() => {
+    // 検索キーワード・ステータス・カテゴリ・並び順・ページが変わるたびに本一覧を再取得します。
     setLoading(true)
     searchBooks({
       keyword: keyword || undefined,
@@ -120,12 +139,15 @@ export default function BookListPage() {
   }, [keyword, statusFilter, categoryFilter, sort, page])
 
   const handleSearch = (e: React.FormEvent) => {
+    // 検索フォーム送信時にキーワードを確定し、1ページ目へ戻します。
     e.preventDefault()
     setKeyword(inputKeyword)
     setPage(1)
   }
 
   const handleCategoryChange = (value: string) => {
+    // カテゴリ選択を変更したら、URLのquery parameterにも反映します。
+    // これにより、URL共有やブラウザ戻る操作でも状態が分かりやすくなります。
     setCategoryFilter(value)
     setPage(1)
     const next = new URLSearchParams(searchParams)
@@ -163,86 +185,90 @@ export default function BookListPage() {
     <div style={{ background: EDITORIAL.paper, color: EDITORIAL.ink }}>
       {/* Page header */}
       <section style={{ padding: '56px 56px 36px' }}>
-        <div
-          style={{
-            fontFamily: FONTS.mono,
-            fontSize: 11,
-            color: EDITORIAL.accent,
-            letterSpacing: '0.2em',
-            marginBottom: 20,
-          }}
-        >
-          ── ISSUE {totalBooks || '—'} · YOUR LIBRARY ──
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
-            marginBottom: 8,
-            gap: 24,
-          }}
-        >
-          <h1
+        <Reveal>
+          <div
             style={{
-              fontFamily: FONTS.serif,
-              fontSize: 88,
-              fontWeight: 300,
-              letterSpacing: '-0.03em',
-              lineHeight: 1,
-              margin: 0,
+              fontFamily: FONTS.mono,
+              fontSize: 11,
+              color: EDITORIAL.accent,
+              letterSpacing: '0.2em',
+              marginBottom: 20,
             }}
           >
-            {activeCategory
-              ? activeCategory.name
-              : categoryFilter === 'uncategorized'
-                ? '未分類'
-                : '本棚'}{' '}
-            <span style={{ fontStyle: 'italic', color: EDITORIAL.accent, fontSize: 64 }}>
-              {activeCategory
-                ? 'On this shelf'
-                : categoryFilter === 'uncategorized'
-                  ? 'Uncategorized'
-                  : 'The Shelf'}
-            </span>
-          </h1>
-          <Link to="/books/new" style={{ textDecoration: 'none' }}>
-            <PrimaryButton label="+ 本を追加  Add a book" />
-          </Link>
-        </div>
-        {(activeCategory || categoryFilter === 'uncategorized') && (
-          <div style={{ marginTop: 12 }}>
-            <Link
-              to="/books"
+            ── ISSUE {totalBooks || '—'} · YOUR LIBRARY ──
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              marginBottom: 8,
+              gap: 24,
+            }}
+          >
+            <h1
               style={{
                 fontFamily: FONTS.serif,
-                fontStyle: 'italic',
-                fontSize: 14,
-                color: EDITORIAL.inkSoft,
-                textDecoration: 'none',
-                borderBottom: `1px solid ${EDITORIAL.line}`,
-              }}
-              onClick={() => {
-                setStatusFilter('all')
-                setKeyword('')
-                setInputKeyword('')
+                fontSize: 88,
+                fontWeight: 300,
+                letterSpacing: '-0.03em',
+                lineHeight: 1,
+                margin: 0,
               }}
             >
-              ← すべての本棚に戻る  Back to all shelves
+              {activeCategory
+                ? activeCategory.name
+                : categoryFilter === 'uncategorized'
+                  ? '未分類'
+                  : '本棚'}{' '}
+              <span style={{ fontStyle: 'italic', color: EDITORIAL.accent, fontSize: 64 }}>
+                {activeCategory
+                  ? 'On this shelf'
+                  : categoryFilter === 'uncategorized'
+                    ? 'Uncategorized'
+                    : 'The Shelf'}
+              </span>
+            </h1>
+            <Link to="/books/new" style={{ textDecoration: 'none' }}>
+              <PrimaryButton label="+ 本を追加  Add a book" />
             </Link>
           </div>
-        )}
-        <StatStrip
-          total={totalBooks}
-          finished={finishedCount}
-          reading={readingCount}
-          stack={stackCount}
-        />
+          {(activeCategory || categoryFilter === 'uncategorized') && (
+            <div style={{ marginTop: 12 }}>
+              <Link
+                to="/books"
+                style={{
+                  fontFamily: FONTS.serif,
+                  fontStyle: 'italic',
+                  fontSize: 14,
+                  color: EDITORIAL.inkSoft,
+                  textDecoration: 'none',
+                  borderBottom: `1px solid ${EDITORIAL.line}`,
+                }}
+                onClick={() => {
+                  setStatusFilter('all')
+                  setKeyword('')
+                  setInputKeyword('')
+                }}
+              >
+                ← すべての本棚に戻る  Back to all shelves
+              </Link>
+            </div>
+          )}
+          <StatStrip
+            total={totalBooks}
+            finished={finishedCount}
+            reading={readingCount}
+            stack={stackCount}
+          />
+        </Reveal>
       </section>
 
       {/* Search & filters */}
       <section style={{ padding: '0 56px 36px' }}>
+        <Reveal delay={80}>
         <div
+          className="bm-hover-sheen"
           style={{
             background: EDITORIAL.panel,
             border: `1px solid ${EDITORIAL.line}`,
@@ -335,10 +361,12 @@ export default function BookListPage() {
             />
           </div>
         </div>
+        </Reveal>
       </section>
 
       {/* Body */}
       <section style={{ padding: '0 56px 80px' }}>
+        <Reveal delay={120}>
         {showShelfOverview ? (
           <ShelvesOverview
             shelves={shelves}
@@ -361,6 +389,7 @@ export default function BookListPage() {
             onNext={() => setPage((p) => p + 1)}
           />
         )}
+        </Reveal>
       </section>
     </div>
   )
@@ -389,7 +418,7 @@ function StatStrip({
         flexWrap: 'wrap',
       }}
     >
-      <Stat label="冊登録中" value={total} valueColor={EDITORIAL.ink} />
+      <Stat label="登録冊数" value={total} valueColor={EDITORIAL.ink} />
       <Divider />
       <Stat label="読了" value={finished} valueColor={STATUS_INK.FINISHED} italic />
       <Divider />
@@ -630,13 +659,14 @@ function ShelvesOverview({
         const accent = shelf.colorHex ?? hashColor(shelf.label)
         const category = categories.find((c) => `category:${c.id}` === shelf.key)
         return (
-          <ShelfSection
-            key={shelf.key}
-            index={si}
-            shelf={shelf}
-            accent={accent}
-            categoryEn={category ? '' : 'Uncategorized'}
-          />
+          <Reveal key={shelf.key} delay={Math.min(si * 70, 280)}>
+            <ShelfSection
+              index={si}
+              shelf={shelf}
+              accent={accent}
+              categoryEn={category ? '' : 'Uncategorized'}
+            />
+          </Reveal>
         )
       })}
     </div>
@@ -761,6 +791,7 @@ function BookCard({ book, shelfColor }: { book: BookListItem; shelfColor: string
   const statusColor = STATUS_INK[book.status] ?? EDITORIAL.inkSoft
   return (
     <Link
+      className="bm-hover-sheen"
       to={`/books/${book.id}`}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
@@ -862,6 +893,7 @@ function AddBookCard({ accent }: { accent: string }) {
   const [hover, setHover] = useState(false)
   return (
     <Link
+      className="bm-hover-sheen"
       to="/books/new"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}

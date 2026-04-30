@@ -5,7 +5,7 @@ info:
   summary: Personal reading tracker API
   description: >-
     Books Memo 向けの REST API。書誌原本(book_master)と個人利用情報(user_book)を分離し、
-    ISBN 取り込み、タグ管理、読書状態更新を提供する。
+    ISBN 取り込み、カテゴリー管理、読書状態更新を提供する。
 servers:
   - url: https://api.example.com/api/v1
     description: production
@@ -17,7 +17,7 @@ tags:
   - name: Auth
   - name: Books
   - name: ISBN
-  - name: Tags
+  - name: Categories
 paths:
   /auth/login:
     post:
@@ -50,6 +50,30 @@ paths:
       responses:
         '204':
           description: Logout success
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Register success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /me:
     get:
       tags: [Auth]
@@ -74,8 +98,11 @@ paths:
           schema:
             $ref: '#/components/schemas/BookStatus'
         - in: query
-          name: tagId
+          name: categoryId
           schema: { type: integer, format: int64 }
+        - in: query
+          name: uncategorized
+          schema: { type: boolean }
         - in: query
           name: favorite
           schema: { type: boolean }
@@ -229,13 +256,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserBookDetail'
-  /tags:
+  /categories:
     get:
-      tags: [Tags]
-      summary: List tags
+      tags: [Categories]
+      summary: List categories
       responses:
         '200':
-          description: Tag list
+          description: Category list
           content:
             application/json:
               schema:
@@ -244,47 +271,47 @@ paths:
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Tag'
+                      $ref: '#/components/schemas/Category'
     post:
-      tags: [Tags]
-      summary: Create tag
+      tags: [Categories]
+      summary: Create category
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateTagRequest'
+              $ref: '#/components/schemas/CreateCategoryRequest'
       responses:
         '201':
           description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tag'
-  /tags/{tagId}:
+                $ref: '#/components/schemas/Category'
+  /categories/{categoryId}:
     patch:
-      tags: [Tags]
-      summary: Update tag
+      tags: [Categories]
+      summary: Update category
       parameters:
-        - $ref: '#/components/parameters/TagId'
+        - $ref: '#/components/parameters/CategoryId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateTagRequest'
+              $ref: '#/components/schemas/UpdateCategoryRequest'
       responses:
         '200':
           description: Updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tag'
+                $ref: '#/components/schemas/Category'
     delete:
-      tags: [Tags]
-      summary: Delete tag
+      tags: [Categories]
+      summary: Delete category
       parameters:
-        - $ref: '#/components/parameters/TagId'
+        - $ref: '#/components/parameters/CategoryId'
       responses:
         '204':
           description: Deleted
@@ -324,9 +351,9 @@ components:
       name: userBookId
       required: true
       schema: { type: integer, format: int64 }
-    TagId:
+    CategoryId:
       in: path
-      name: tagId
+      name: categoryId
       required: true
       schema: { type: integer, format: int64 }
   schemas:
@@ -342,6 +369,13 @@ components:
       properties:
         email: { type: string, format: email }
         password: { type: string, minLength: 8, maxLength: 72 }
+    RegisterRequest:
+      type: object
+      required: [email, password, displayName]
+      properties:
+        email: { type: string, format: email, maxLength: 255 }
+        password: { type: string, minLength: 8, maxLength: 72 }
+        displayName: { type: string, maxLength: 100 }
     LoginResponse:
       type: object
       required: [accessToken, tokenType, expiresIn, user]
@@ -373,7 +407,7 @@ components:
         publishedDate: { type: string, format: date, nullable: true }
         thumbnailUrl: { type: string, nullable: true }
         sourcePrimary: { type: string, enum: [OPENBD, GOOGLE_BOOKS, MANUAL] }
-    Tag:
+    Category:
       type: object
       required: [id, name, sortOrder]
       properties:
@@ -393,10 +427,10 @@ components:
         startDate: { type: string, format: date, nullable: true }
         finishDate: { type: string, format: date, nullable: true }
         updatedAt: { type: string, format: date-time }
-        tags:
-          type: array
-          items:
-            $ref: '#/components/schemas/Tag'
+        category:
+          anyOf:
+            - $ref: '#/components/schemas/Category'
+            - type: 'null'
         bookMaster:
           $ref: '#/components/schemas/BookMasterSummary'
     PaginationMeta:
@@ -443,9 +477,7 @@ components:
         rating: { type: number, format: double, nullable: true }
         favoriteFlag: { type: boolean, default: false }
         memo: { type: string, nullable: true }
-        tagIds:
-          type: array
-          items: { type: integer, format: int64 }
+        categoryId: { type: integer, format: int64, nullable: true }
     ImportByIsbnRequest:
       type: object
       required: [isbn, status]
@@ -453,9 +485,7 @@ components:
         isbn: { type: string }
         status: { $ref: '#/components/schemas/BookStatus' }
         memo: { type: string, nullable: true }
-        tagIds:
-          type: array
-          items: { type: integer, format: int64 }
+        categoryId: { type: integer, format: int64, nullable: true }
     UpdateBookRequest:
       type: object
       properties:
@@ -467,22 +497,20 @@ components:
         finishDate: { type: string, format: date, nullable: true }
         memo: { type: string, nullable: true }
         locationNote: { type: string, nullable: true }
-        tagIds:
-          type: array
-          items: { type: integer, format: int64 }
+        categoryId: { type: integer, format: int64, nullable: true }
     UpdateStatusRequest:
       type: object
       required: [status]
       properties:
         status: { $ref: '#/components/schemas/BookStatus' }
-    CreateTagRequest:
+    CreateCategoryRequest:
       type: object
       required: [name]
       properties:
         name: { type: string, maxLength: 50 }
         colorHex: { type: string, pattern: '^#[0-9A-Fa-f]{6}$', nullable: true }
         sortOrder: { type: integer, default: 0 }
-    UpdateTagRequest:
+    UpdateCategoryRequest:
       type: object
       properties:
         name: { type: string, maxLength: 50 }

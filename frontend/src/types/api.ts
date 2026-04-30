@@ -1,3 +1,7 @@
+// バックエンドAPIとやり取りするJSONの形をTypeScriptで定義したファイルです。
+// Java側の DTO / Response と対応しています。
+// Laravelでいうと、API Resourceの返却形式をフロント側でも型として持っているイメージです。
+
 export type BookStatus =
   | 'WISHLIST'
   | 'PURCHASED'
@@ -23,6 +27,7 @@ export const BOOK_STATUS_LABELS: Record<BookStatus, string> = {
   TSUNDOKU: '積読',
 }
 
+// ログイン中ユーザーの表示用情報です。
 export interface MeResponse {
   id: number
   email: string
@@ -30,11 +35,20 @@ export interface MeResponse {
   role: UserRole
 }
 
+// ログインAPIへ送るJSONです。
 export interface LoginRequest {
   email: string
   password: string
 }
 
+// 新規登録APIへ送るJSONです。
+export interface RegisterRequest {
+  email: string
+  password: string
+  displayName: string
+}
+
+// ログイン・登録APIから返るJSONです。accessTokenがJWTです。
 export interface LoginResponse {
   accessToken: string
   tokenType: string
@@ -42,6 +56,7 @@ export interface LoginResponse {
   user: MeResponse
 }
 
+// カテゴリ情報です。colorHexは #RRGGBB 形式の色です。
 export interface Category {
   id: number
   name: string
@@ -49,6 +64,7 @@ export interface Category {
   sortOrder: number
 }
 
+// 本そのものの情報です。ユーザーごとの読書状態は含みません。
 export interface BookMasterSummary {
   id?: number
   isbn13?: string | null
@@ -62,6 +78,7 @@ export interface BookMasterSummary {
   sourcePrimary: SourceName
 }
 
+// 本一覧に表示する1冊分の情報です。
 export interface BookListItem {
   id: number
   status: BookStatus
@@ -75,6 +92,7 @@ export interface BookListItem {
   bookMaster: BookMasterSummary
 }
 
+// 本詳細画面で使う情報です。一覧用情報にメモなどを足しています。
 export interface UserBookDetail extends BookListItem {
   memo?: string | null
   locationNote?: string | null

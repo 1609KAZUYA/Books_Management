@@ -1,23 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { searchBooks } from '../api/books'
 import {
   createCategory,
   deleteCategory,
   getCategories,
   updateCategory,
 } from '../api/categories'
-import type { BookListItem, Category } from '../types/api'
+import type { Category } from '../types/api'
 import { EDITORIAL, FONTS, PALETTE_10, shade } from '../styles/editorial'
-
-interface CategoryStat {
-  count: number
-  latest?: BookListItem
-}
+import { categoryBackground, readableTextColor } from '../utils/color'
 
 export default function CategoryManagePage() {
   const [categories, setCategories] = useState<Category[]>([])
-  const [stats, setStats] = useState<Record<number, CategoryStat>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -41,38 +35,6 @@ export default function CategoryManagePage() {
     reload()
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    Promise.all(
-      categories.map((c) =>
-        searchBooks({ categoryId: c.id, size: 1, sort: 'updatedAtDesc' }).then((data) => ({
-          id: c.id,
-          count: data.meta.totalItems,
-          latest: data.items[0],
-        })),
-      ),
-    )
-      .then((results) => {
-        if (cancelled) return
-        const next: Record<number, CategoryStat> = {}
-        for (const r of results) {
-          next[r.id] = { count: r.count, latest: r.latest }
-        }
-        setStats(next)
-      })
-      .catch(() => {
-        if (!cancelled) setStats({})
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [categories])
-
-  const totalBooks = useMemo(
-    () => Object.values(stats).reduce((sum, s) => sum + s.count, 0),
-    [stats],
-  )
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newName.trim()) return
@@ -84,7 +46,7 @@ export default function CategoryManagePage() {
       setNewColor(PALETTE_10[5])
       await reload()
     } catch {
-      setError('カテゴリーの作成に失敗しました')
+      setError('カテゴリーの追加に失敗しました')
     } finally {
       setCreating(false)
     }
@@ -346,8 +308,8 @@ export default function CategoryManagePage() {
               />
               <span
                 style={{
-                  background: newColor,
-                  color: '#fff',
+                  background: categoryBackground(newColor),
+                  color: readableTextColor(categoryBackground(newColor)),
                   padding: '4px 12px',
                   fontSize: 13,
                   fontWeight: 500,
@@ -412,7 +374,7 @@ export default function CategoryManagePage() {
                   margin: 0,
                 }}
               >
-                登録済み
+                カテゴリー一覧
               </h2>
               <span
                 style={{
@@ -433,7 +395,7 @@ export default function CategoryManagePage() {
                 letterSpacing: '0.14em',
               }}
             >
-              {categories.length} CATEGORIES · {totalBooks} BOOKS
+              {categories.length} CATEGORIES
             </span>
           </div>
 
@@ -441,8 +403,7 @@ export default function CategoryManagePage() {
           <div style={tableHeaderStyle}>
             <span>NO.</span>
             <span>NAME · 名前</span>
-            <span>LATEST · 最新の本</span>
-            <span style={{ textAlign: 'right' }}>BOOKS</span>
+            <span>COLOR · 色</span>
             <span style={{ textAlign: 'right' }}>ACTIONS</span>
           </div>
 
@@ -455,19 +416,17 @@ export default function CategoryManagePage() {
           ) : categories.length === 0 ? (
             <div style={{ padding: 56, textAlign: 'center', color: EDITORIAL.inkSoft }}>
               <div style={{ fontFamily: FONTS.serif, fontStyle: 'italic', fontSize: 16 }}>
-                まだカテゴリーがありません — 左のフォームから最初の一つを。
+                まだカテゴリーがありません。左のフォームから最初のカテゴリーを追加してください。
               </div>
             </div>
           ) : (
             categories.map((category, i) => {
-              const stat = stats[category.id]
               const isEditing = editingId === category.id
               return (
                 <CategoryRow
                   key={category.id}
                   index={i}
                   category={category}
-                  stat={stat}
                   isEditing={isEditing}
                   editName={editName}
                   editColor={editColor}
@@ -543,7 +502,6 @@ export default function CategoryManagePage() {
 interface CategoryRowProps {
   index: number
   category: Category
-  stat?: CategoryStat
   isEditing: boolean
   editName: string
   editColor: string
@@ -558,7 +516,6 @@ interface CategoryRowProps {
 function CategoryRow({
   index,
   category,
-  stat,
   isEditing,
   editName,
   editColor,
@@ -570,8 +527,8 @@ function CategoryRow({
   onDelete,
 }: CategoryRowProps) {
   const [hover, setHover] = useState(false)
-  const color = category.colorHex ?? '#8a7a6c'
-  const latest = stat?.latest
+  const color = categoryBackground(category.colorHex ?? '#8a7a6c')
+  const textColor = readableTextColor(color)
 
   return (
     <div
@@ -579,7 +536,7 @@ function CategoryRow({
       onMouseLeave={() => setHover(false)}
       style={{
         display: 'grid',
-        gridTemplateColumns: '40px 1fr 1.4fr 80px 140px',
+        gridTemplateColumns: '40px 1.2fr 1fr 140px',
         gap: 18,
         padding: '20px 4px',
         alignItems: 'center',
@@ -652,7 +609,7 @@ function CategoryRow({
           <span
             style={{
               background: color,
-              color: '#fff',
+              color: textColor,
               padding: '4px 12px',
               fontSize: 13,
               fontWeight: 500,
@@ -665,57 +622,20 @@ function CategoryRow({
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {latest ? (
-          <>
-            <div
-              style={{
-                width: 24,
-                height: 32,
-                background: `linear-gradient(135deg, ${shade(color, 15)}, ${shade(color, -25)})`,
-                boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.15)',
-                flexShrink: 0,
-              }}
-            />
-            <span
-              style={{
-                fontFamily: FONTS.serif,
-                fontSize: 14,
-                fontStyle: 'italic',
-                color: EDITORIAL.ink,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              「{latest.bookMaster.title}」
-            </span>
-          </>
-        ) : (
-          <span
-            style={{
-              fontFamily: FONTS.serif,
-              fontStyle: 'italic',
-              fontSize: 13,
-              color: EDITORIAL.inkMuted,
-            }}
-          >
-            まだ本がありません
-          </span>
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span
+          style={{
+            width: 36,
+            height: 12,
+            background: color,
+            border: `1px solid ${shade(color, -10)}`,
+            display: 'inline-block',
+          }}
+        />
+        <span style={{ fontFamily: FONTS.mono, fontSize: 11, color: EDITORIAL.inkMuted }}>
+          {color.toUpperCase()}
+        </span>
       </div>
-
-      <span
-        style={{
-          fontFamily: FONTS.serif,
-          fontSize: 22,
-          fontWeight: 400,
-          color: EDITORIAL.ink,
-          textAlign: 'right',
-        }}
-      >
-        {stat?.count ?? '—'}
-      </span>
 
       <div
         style={{
@@ -782,7 +702,7 @@ function IconBtn({
 
 const tableHeaderStyle: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '40px 1fr 1.4fr 80px 140px',
+  gridTemplateColumns: '40px 1.2fr 1fr 140px',
   gap: 18,
   padding: '12px 4px',
   fontFamily: FONTS.mono,

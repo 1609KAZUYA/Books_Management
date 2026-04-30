@@ -11,6 +11,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * 手入力で本を追加するときに、フロントから受け取るJSONの形です。
+ *
+ * record は「値を運ぶためのクラス」です。
+ * Laravelでいう Request DTO / FormRequest のように考えると分かりやすいです。
+ */
 public record CreateBookRequest(
         @Pattern(regexp = "^[0-9]{13}$") String isbn13,
         @Pattern(regexp = "^[0-9X]{10}$") String isbn10,

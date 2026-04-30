@@ -12,16 +12,23 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * 「今ログインしているユーザー」を取り出すための共通Serviceです。
+ *
+ * Laravelでいう auth()->user() に近い役割です。
+ */
 public class UserContextService {
 
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
     public User requireCurrentUser() {
+        // JwtAuthenticationFilter が SecurityContextHolder にユーザーIDを入れています。
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || !(auth.getPrincipal() instanceof Long userId)) {
             throw new UnauthorizedException("Not authenticated");
         }
+        // ユーザーIDからDBのUserエンティティを取得します。
         return userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("AUTH-404", "User not found"));
     }

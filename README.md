@@ -18,7 +18,7 @@ BookManagement/
 
 - Docker Desktop
 - Java 21 + Maven
-- Node.js 18+
+- Node.js 18-22
 
 ### 1. PostgreSQL 起動
 
@@ -60,12 +60,14 @@ UI: `http://localhost:5173`
 | Method | Path | 説明 |
 |---|---|---|
 | POST | `/api/v1/auth/login` | ログイン（JWT 発行） |
+| POST | `/api/v1/auth/register` | ユーザー登録（JWT 発行） |
 | GET | `/api/v1/me` | 現在のユーザー情報 |
 | GET | `/api/v1/books` | 本一覧（検索・フィルター・ページング） |
-| POST | `/api/v1/books` | 手動で本を登録 |
-| POST | `/api/v1/books/import-by-isbn` | ISBN で本を取り込み |
-| GET | `/api/v1/isbn/{isbn}` | ISBN 検索（登録なし） |
-| GET/POST | `/api/v1/tags` | タグ一覧・作成 |
+| POST | `/api/v1/books` | 手動で本を追加 |
+| POST | `/api/v1/books/import-by-isbn` | ISBN で本を追加 |
+| GET | `/api/v1/isbn/{isbn}` | ISBN 検索（追加なし） |
+| GET/POST | `/api/v1/categories` | カテゴリー一覧・追加 |
+| PATCH/DELETE | `/api/v1/categories/{categoryId}` | カテゴリー更新・削除 |
 
 ## 環境変数（デフォルト値あり）
 

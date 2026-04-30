@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { EditorialAtmosphere, Reveal, ScrollProgressBar } from '../components/Motion'
 import { EDITORIAL, FONTS, shade } from '../styles/editorial'
 
 const C = EDITORIAL
@@ -30,14 +31,19 @@ export default function LandingPage() {
   const navigate = useNavigate()
   const [hovered, setHovered] = useState<string | null>(null)
   const goLogin = () => navigate('/login')
+  const goRegister = () => navigate('/register')
 
   return (
-    <div style={baseStyle}>
+    <div style={{ ...baseStyle, position: 'relative', overflow: 'hidden' }}>
+      <ScrollProgressBar />
+      <EditorialAtmosphere />
       <div
         style={{
           maxWidth: 1440,
           margin: '0 auto',
           background: C.paper,
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         {/* Top bar */}
@@ -73,7 +79,7 @@ export default function LandingPage() {
             </span>
           </div>
           <nav style={{ display: 'flex', gap: 36, fontSize: 14, color: C.inkSoft }}>
-            {['Features 機能', 'How it works 使い方', 'Pricing 料金', 'Log in ログイン'].map(
+            {['Features 機能', 'How it works 使い方', 'Log in ログイン'].map(
               (t) => (
                 <a
                   key={t}
@@ -89,7 +95,7 @@ export default function LandingPage() {
           </nav>
           <button
             type="button"
-            onClick={goLogin}
+            onClick={goRegister}
             onMouseEnter={() => setHovered('cta-top')}
             onMouseLeave={() => setHovered(null)}
             style={{
@@ -106,23 +112,25 @@ export default function LandingPage() {
               transition: 'all 0.25s ease',
             }}
           >
-            無料で始める →
+            無料ではじめる →
           </button>
         </header>
 
         {/* Hero */}
         <section style={{ padding: '88px 64px 96px', borderBottom: `1px solid ${C.line}` }}>
-          <div
-            style={{
-              fontFamily: MONO,
-              fontSize: 11,
-              letterSpacing: '0.18em',
-              color: C.accent,
-              marginBottom: 32,
-            }}
-          >
-            VOL. 01 — A QUIET PLACE FOR YOUR BOOKS
-          </div>
+          <Reveal>
+            <div
+              style={{
+                fontFamily: MONO,
+                fontSize: 11,
+                letterSpacing: '0.18em',
+                color: C.accent,
+                marginBottom: 32,
+              }}
+            >
+              VOL. 01 — A QUIET PLACE FOR YOUR BOOKS
+            </div>
+          </Reveal>
 
           <div
             style={{
@@ -132,7 +140,7 @@ export default function LandingPage() {
               alignItems: 'end',
             }}
           >
-            <div>
+            <Reveal delay={80}>
               <h1
                 style={{
                   fontFamily: SERIF,
@@ -144,8 +152,8 @@ export default function LandingPage() {
                   margin: '0 0 36px',
                 }}
               >
-                <span style={{ fontStyle: 'italic', fontWeight: 300 }}>積</span>
-                ん読も、
+                <span style={{ fontStyle: 'italic', fontWeight: 300 }}>積読</span>
+                も、
                 <br />
                 <span style={{ fontStyle: 'italic', fontWeight: 300 }}>読</span>
                 みかけも、
@@ -167,7 +175,7 @@ export default function LandingPage() {
               <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                 <button
                   type="button"
-                  onClick={goLogin}
+                  onClick={goRegister}
                   onMouseEnter={() => setHovered('cta-hero')}
                   onMouseLeave={() => setHovered(null)}
                   style={{
@@ -201,11 +209,11 @@ export default function LandingPage() {
                   Free forever · No card required
                 </span>
               </div>
-            </div>
+            </Reveal>
 
-            <div style={{ position: 'relative', height: 480 }}>
+            <Reveal delay={180} style={{ position: 'relative', height: 480 }}>
               <BookStack />
-            </div>
+            </Reveal>
           </div>
         </section>
 
@@ -217,22 +225,26 @@ export default function LandingPage() {
             background: C.paperDeep,
           }}
         >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 64,
-            }}
-          >
+          <Reveal>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+                gap: 16,
+              }}
+            >
             {(
               [
-                ['247', '冊登録中', 'BOOKS LOGGED'],
-                ['12', 'カテゴリ', 'CATEGORIES'],
+                ['247', '登録冊数', 'BOOKS LOGGED'],
+                ['12', 'カテゴリー', 'CATEGORIES'],
                 ['38', '今月の読了', 'FINISHED THIS MONTH'],
                 ['∞', '可能性', 'POSSIBILITIES'],
               ] as const
-            ).map(([n, jp, en]) => (
-              <div key={en}>
+            ).map(([n, jp, en], index) => (
+              <div
+                key={en}
+                className={`bm-bento-stat bm-hover-sheen${index === 0 ? ' bm-bento-stat--wide' : ''}`}
+              >
                 <div
                   style={{
                     fontFamily: SERIF,
@@ -258,19 +270,22 @@ export default function LandingPage() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          </Reveal>
         </section>
 
         {/* Feature 01 — Shelf */}
         <section style={{ padding: '120px 64px', borderBottom: `1px solid ${C.line}` }}>
-          <FeatureRow
-            number="01"
-            eyebrow="THE SHELF"
-            title="本棚 — 一目でわかる、自分だけの書庫"
-            subtitle="Your library, at a glance"
-            body="ビジネス、PC、小説——ジャンルごとに区切られた本棚で、所有している本が一望できます。表紙を眺めるだけで、次に読みたい一冊が自然と手に取れる。"
-            visual={<ShelfPreview />}
-          />
+          <Reveal>
+            <FeatureRow
+              number="01"
+              eyebrow="THE SHELF"
+              title="本棚 — 一目でわかる、自分だけの書庫"
+              subtitle="Your library, at a glance"
+              body="ビジネス、PC、小説——ジャンルごとに区切られた本棚で、所有している本が一望できます。表紙を眺めるだけで、次に読みたい一冊が自然と手に取れる。"
+              visual={<ShelfPreview />}
+            />
+          </Reveal>
         </section>
 
         {/* Feature 02 — Categories */}
@@ -281,27 +296,31 @@ export default function LandingPage() {
             background: C.paperDeep,
           }}
         >
-          <FeatureRow
-            number="02"
-            eyebrow="CATEGORIES"
-            title="カテゴリー管理 — 色で分ける、心で分ける"
-            subtitle="Organize by feel, not just by topic"
-            body="自由に作れるカテゴリーには、好きな色を添えて。背表紙のように並んだラベルが、本棚に小さなリズムを生みます。"
-            visual={<CategoryPreview />}
-            flip
-          />
+          <Reveal>
+            <FeatureRow
+              number="02"
+              eyebrow="CATEGORIES"
+              title="カテゴリー管理 — 色で分ける、心で分ける"
+              subtitle="Organize by feel, not just by topic"
+              body="自由に作れるカテゴリーには、好きな色を添えて。背表紙のように並んだラベルが、本棚に小さなリズムを生みます。"
+              visual={<CategoryPreview />}
+              flip
+            />
+          </Reveal>
         </section>
 
         {/* Feature 03 — Search */}
         <section style={{ padding: '120px 64px', borderBottom: `1px solid ${C.line}` }}>
-          <FeatureRow
-            number="03"
-            eyebrow="DISCOVERY"
-            title="検索とフィルター — あの一冊が、すぐそこに"
-            subtitle="Find any book in seconds"
-            body="タイトル・著者・ISBNから、ステータスや更新日まで。膨大な蔵書の中から、いま読みたい本にすぐ辿り着けます。"
-            visual={<SearchPreview />}
-          />
+          <Reveal>
+            <FeatureRow
+              number="03"
+              eyebrow="DISCOVERY"
+              title="検索とフィルター — あの一冊が、すぐそこに"
+              subtitle="Find any book in seconds"
+              body="タイトル・著者・ISBNから、ステータスや更新日まで。膨大な蔵書の中から、いま読みたい本にすぐ辿り着けます。"
+              visual={<SearchPreview />}
+            />
+          </Reveal>
         </section>
 
         {/* Closing CTA */}
@@ -313,47 +332,49 @@ export default function LandingPage() {
             color: C.paper,
           }}
         >
-          <div
-            style={{
-              fontFamily: MONO,
-              fontSize: 11,
-              letterSpacing: '0.2em',
-              color: C.accent,
-              marginBottom: 28,
-            }}
-          >
-            ── BEGIN YOUR LIBRARY ──
-          </div>
-          <h2
-            style={{
-              fontFamily: SERIF,
-              fontSize: 88,
-              fontWeight: 300,
-              lineHeight: 1.05,
-              marginBottom: 28,
-              letterSpacing: '-0.02em',
-              margin: '0 0 28px',
-            }}
-          >
-            今日読んだ一冊が、
-            <br />
-            <span style={{ fontStyle: 'italic' }}>明日のあなたを</span>つくる。
-          </h2>
-          <p
-            style={{
-              fontSize: 17,
-              color: 'rgba(244,237,224,0.7)',
-              marginBottom: 48,
-              maxWidth: 580,
-              margin: '0 auto 48px',
-              lineHeight: 1.7,
-            }}
-          >
-            無料で使い始められます。クレジットカード不要、いつでも退会できます。
-          </p>
+          <Reveal>
+            <div
+              style={{
+                fontFamily: MONO,
+                fontSize: 11,
+                letterSpacing: '0.2em',
+                color: C.accent,
+                marginBottom: 28,
+              }}
+            >
+              ── BEGIN YOUR LIBRARY ──
+            </div>
+            <h2
+              style={{
+                fontFamily: SERIF,
+                fontSize: 88,
+                fontWeight: 300,
+                lineHeight: 1.05,
+                marginBottom: 28,
+                letterSpacing: '-0.02em',
+                margin: '0 0 28px',
+              }}
+            >
+              今日読んだ一冊が、
+              <br />
+              <span style={{ fontStyle: 'italic' }}>明日のあなたを</span>つくる。
+            </h2>
+            <p
+              style={{
+                fontSize: 17,
+                color: 'rgba(244,237,224,0.7)',
+                marginBottom: 48,
+                maxWidth: 580,
+                margin: '0 auto 48px',
+                lineHeight: 1.7,
+              }}
+            >
+              無料ではじめられます。クレジットカード不要で、登録後すぐに本棚を作成できます。
+            </p>
+          </Reveal>
           <button
             type="button"
-            onClick={goLogin}
+            onClick={goRegister}
             onMouseEnter={() => setHovered('cta-end')}
             onMouseLeave={() => setHovered(null)}
             style={{
@@ -370,7 +391,7 @@ export default function LandingPage() {
               transition: 'all 0.3s ease',
             }}
           >
-            無料で始める  Start free  →
+            無料ではじめる  Start free  →
           </button>
         </section>
 
@@ -471,6 +492,7 @@ function FeatureRow({ number, eyebrow, title, subtitle, body, visual, flip }: Fe
 }
 
 function BookStack() {
+  const [tilt, setTilt] = useState({ x: 0, y: 0 })
   const books = [
     { w: 280, h: 56, color: '#3a4a5a', label: 'BUSINESS · 24' },
     { w: 300, h: 64, color: C.accent, label: 'NOVELS · 31' },
@@ -480,16 +502,37 @@ function BookStack() {
   ]
   let y = 420
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div
+      onMouseMove={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect()
+        setTilt({
+          x: (e.clientX - rect.left - rect.width / 2) / rect.width,
+          y: (e.clientY - rect.top - rect.height / 2) / rect.height,
+        })
+      }}
+      onMouseLeave={() => setTilt({ x: 0, y: 0 })}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        perspective: 900,
+        transform: `rotateX(${tilt.y * -5}deg) rotateY(${tilt.x * 7}deg)`,
+        transition: 'transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+      }}
+    >
       {books.map((b, i) => {
         y -= b.h + 4
+        const rotate = `${i % 2 === 0 ? -0.4 : 0.4}deg`
         return (
           <div
             key={b.label}
+            className="bm-float-book bm-hover-sheen"
             style={{
               position: 'absolute',
               left: '50%',
-              transform: `translateX(-50%) rotate(${i % 2 === 0 ? -0.4 : 0.4}deg)`,
+              '--book-rotate': rotate,
+              '--book-drift-x': i % 2 === 0 ? '-3px' : '3px',
+              transform: `translateX(-50%) rotate(${rotate})`,
               top: y,
               width: b.w,
               height: b.h,
@@ -504,7 +547,7 @@ function BookStack() {
               fontSize: 10,
               letterSpacing: '0.18em',
               fontFamily: MONO,
-            }}
+            } as CSSProperties}
           >
             {b.label}
           </div>
@@ -534,6 +577,7 @@ function ShelfPreview() {
   ]
   return (
     <div
+      className="bm-hover-sheen"
       style={{
         background: C.paper,
         padding: 28,
@@ -567,6 +611,7 @@ function ShelfPreview() {
         {cats.map((c) => (
           <div key={c.en} style={{ border: `1px solid ${C.line}`, background: '#fff' }}>
             <div
+              className="bm-hover-sheen"
               style={{
                 background: c.color,
                 color: '#fff',
@@ -624,6 +669,7 @@ function CategoryPreview() {
   ]
   return (
     <div
+      className="bm-hover-sheen"
       style={{
         background: C.paper,
         padding: 28,
@@ -719,6 +765,7 @@ function SearchPreview() {
   ]
   return (
     <div
+      className="bm-hover-sheen"
       style={{
         background: C.paper,
         padding: 28,
