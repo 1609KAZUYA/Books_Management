@@ -22,18 +22,26 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/categories")
+/**
+ * カテゴリー管理のAPI入口です。
+ *
+ * Laravelでいう CategoryController に近いです。
+ * 「カテゴリ一覧」「作成」「更新」「削除」のURLを受け持ちます。
+ */
 public class CategoryController {
 
     private final CategoryService categoryService;
 
     @GetMapping
     public CategoryListResponse listCategories() {
+        // ログイン中ユーザーのカテゴリだけを一覧で返します。
         return categoryService.listCategories();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public CategoryResponse createCategory(@Valid @RequestBody CreateCategoryRequest request) {
+        // 入力されたカテゴリ名・色・並び順を使って新規作成します。
         return categoryService.createCategory(request);
     }
 
@@ -42,11 +50,13 @@ public class CategoryController {
             @PathVariable Long categoryId,
             @Valid @RequestBody UpdateCategoryRequest request
     ) {
+        // 指定されたカテゴリIDの内容を更新します。
         return categoryService.updateCategory(categoryId, request);
     }
 
     @DeleteMapping("/{categoryId}")
     public ResponseEntity<Void> deleteCategory(@PathVariable Long categoryId) {
+        // カテゴリを削除します。関連する本側はDB設定でカテゴリなしになります。
         categoryService.deleteCategory(categoryId);
         return ResponseEntity.noContent().build();
     }

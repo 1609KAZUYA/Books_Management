@@ -47,6 +47,12 @@ import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * 本の登録・検索・更新・削除を担当する中心的なServiceです。
+ *
+ * Laravelでいうと、BooksControllerから呼ばれるServiceクラスです。
+ * Repositoryを使ってDBを読み書きし、最後にResponse DTOへ変換してControllerへ返します。
+ */
 public class BookService {
 
     private final UserBookRepository userBookRepository;
@@ -68,9 +74,14 @@ public class BookService {
             int page,
             int size
     ) {
+        // 1. JWTからログイン中ユーザーを取得します。
         User user = userContextService.requireCurrentUser();
+
+        // 2. page/size/sortをSpring Data JPA用のPageableに変換します。
         Pageable pageable = PageRequest.of(page - 1, size, resolveSort(sort));
 
+        // 3. 検索条件をSpecificationとして組み立てます。
+        //    Laravelの query builder で where を足していく感覚に近いです。
         Specification<UserBook> spec = byUser(user.getId())
                 .and(activeOnly())
                 .and(byStatus(status))
@@ -78,6 +89,7 @@ public class BookService {
                 .and(byFavorite(favorite))
                 .and(byKeyword(keyword));
 
+        // 4. DB検索し、一覧用DTOとページ情報DTOに詰め替えて返します。
         Page<UserBook> result = userBookRepository.findAll(spec, pageable);
         List<BookListItemResponse> items = result.getContent().stream().map(this::toListItem).toList();
         PaginationMetaResponse meta = new PaginationMetaResponse(
@@ -91,17 +103,26 @@ public class BookService {
 
     @Transactional
     public UserBookDetailResponse createManualBook(CreateBookRequest request) {
+        // 手入力で本を追加する処理です。
+        // UserBook = 「このユーザーの本棚にある1冊」
+        // BookMaster = 「本そのものの共通情報」です。
         User user = userContextService.requireCurrentUser();
         validateRatingStep(request.rating());
         Category category = categoryService.resolveCategory(user.getId(), request.categoryId());
 
+        // ISBNが入力されていれば正規化し、ISBN13として扱えるようにします。
         String isbn13 = resolveIsbn13(request.isbn13(), request.isbn10());
+
+        // 既に似た手入力本がある場合、ISBNなど不足情報を補って再利用します。
         Optional<UserBook> repairableUserBook = findRepairableUserBook(user.getId(), request, isbn13);
         if (repairableUserBook.isPresent()) {
             return repairUserBookMaster(repairableUserBook.get(), request, isbn13, category);
         }
 
+        // BookMasterを探すか、なければ作成します。
         BookMaster bookMaster = resolveOrCreateManualBookMaster(request, isbn13);
+
+        // 同じユーザーが同じ本を既に登録済みなら、重複登録せず既存データを返します。
         Optional<UserBook> existingUserBook = userBookRepository
                 .findByUser_IdAndBookMaster_IdAndDeletedAtIsNull(user.getId(), bookMaster.getId());
         if (existingUserBook.isPresent()) {
@@ -113,6 +134,7 @@ public class BookService {
             return toDetail(existingUserBook.get());
         }
 
+        // ここから新しいUserBookを作成します。
         UserBook userBook = new UserBook();
         userBook.setUser(user);
         userBook.setBookMaster(bookMaster);
@@ -153,12 +175,18 @@ public class BookService {
 
     @Transactional
     public UserBookDetailResponse importByIsbn(ImportByIsbnRequest request) {
+        // ISBNから外部APIで本情報を探し、本棚に登録する処理です。
         User user = userContextService.requireCurrentUser();
         Category category = categoryService.resolveCategory(user.getId(), request.categoryId());
+
+        // OpenBD / Google Booksなどから本の情報を取得します。
         BookMetadata metadata = isbnLookupService.lookupFirstForImport(request.isbn());
+
+        // 既に同じISBNのBookMasterがあれば再利用し、なければ作成します。
         BookMaster bookMaster = bookMasterRepository.findByIsbn13(metadata.isbn13())
                 .orElseGet(() -> createBookMasterFromMetadata(metadata));
 
+        // 同じユーザーが同じ本を登録済みなら重複させません。
         Optional<UserBook> existingUserBook = userBookRepository
                 .findByUser_IdAndBookMaster_IdAndDeletedAtIsNull(user.getId(), bookMaster.getId());
         if (existingUserBook.isPresent()) {
@@ -184,12 +212,14 @@ public class BookService {
 
     @Transactional(readOnly = true)
     public UserBookDetailResponse getBookDetail(Long userBookId) {
+        // 詳細画面用に、ログイン中ユーザーの本だけを取得します。
         User user = userContextService.requireCurrentUser();
         return toDetail(findUserBookOrThrow(user.getId(), userBookId));
     }
 
     @Transactional
     public UserBookDetailResponse updateBook(Long userBookId, UpdateBookRequest request) {
+        // 本棚内の1冊について、ステータス・評価・メモ・日付などを更新します。
         User user = userContextService.requireCurrentUser();
         UserBook userBook = findUserBookOrThrow(user.getId(), userBookId);
         userBook.setCategory(categoryService.resolveCategory(user.getId(), request.categoryId()));
@@ -227,6 +257,8 @@ public class BookService {
 
     @Transactional
     public void deleteBook(Long userBookId) {
+        // 完全削除ではなく deletedAt に日時を入れる「ソフトデリート」です。
+        // 後から復元したい場合や履歴を残したい場合に使いやすい方法です。
         User user = userContextService.requireCurrentUser();
         UserBook userBook = findUserBookOrThrow(user.getId(), userBookId);
         userBook.setDeletedAt(OffsetDateTime.now());
@@ -235,6 +267,8 @@ public class BookService {
 
     @Transactional
     public UserBookDetailResponse updateStatus(Long userBookId, UpdateStatusRequest request) {
+        // ステータス変更専用の処理です。
+        // 読書中にしたら開始日、読了にしたら読了日を自動補完します。
         User user = userContextService.requireCurrentUser();
         UserBook userBook = findUserBookOrThrow(user.getId(), userBookId);
         userBook.setStatus(request.status());
@@ -257,6 +291,8 @@ public class BookService {
     }
 
     private UserBook findUserBookOrThrow(Long userId, Long userBookId) {
+        // 「指定ID」かつ「ログイン中ユーザー」かつ「削除されていない」本だけを探します。
+        // 見つからない場合は404相当の例外にします。
         return userBookRepository.findByIdAndUser_IdAndDeletedAtIsNull(userBookId, userId)
                 .orElseThrow(() -> new NotFoundException("BOOK-404", "Book not found"));
     }
@@ -408,6 +444,8 @@ public class BookService {
             if (!StringUtils.hasText(keyword)) {
                 return cb.conjunction();
             }
+            // タイトル・出版社・ISBNをまとめてLIKE検索します。
+            // cb はCriteriaBuilderで、SQLのwhere条件をJavaで組み立てるための道具です。
             query.distinct(true);
             String like = "%" + keyword.trim().toLowerCase(Locale.ROOT) + "%";
             Join<UserBook, BookMaster> book = root.join("bookMaster", JoinType.INNER);
@@ -421,6 +459,7 @@ public class BookService {
     }
 
     private Sort resolveSort(String sort) {
+        // フロントから受け取った並び順の文字列を、DB検索用のSortに変換します。
         if (!StringUtils.hasText(sort)) {
             return Sort.by(Sort.Order.desc("updatedAt"));
         }
@@ -449,6 +488,7 @@ public class BookService {
     }
 
     private void validateRatingStep(BigDecimal rating) {
+        // 評価は 0.5 から 5.0 まで、0.5刻みだけ許可します。
         if (rating == null) {
             return;
         }
@@ -468,6 +508,8 @@ public class BookService {
     }
 
     private UserBookDetailResponse toDetail(UserBook userBook) {
+        // EntityをそのままJSONにせず、画面に必要な形のDTOへ変換します。
+        // LaravelのAPI Resourceに近い役割です。
         return new UserBookDetailResponse(
                 userBook.getId(),
                 userBook.getStatus(),
@@ -487,6 +529,7 @@ public class BookService {
     }
 
     private BookListItemResponse toListItem(UserBook userBook) {
+        // 一覧画面用の軽めのDTOに変換します。
         return new BookListItemResponse(
                 userBook.getId(),
                 userBook.getStatus(),
@@ -502,6 +545,7 @@ public class BookService {
     }
 
     private BookMasterSummaryResponse toBookMaster(BookMaster bookMaster) {
+        // BookMasterの中から、画面表示に必要な本の基本情報だけ返します。
         return new BookMasterSummaryResponse(
                 bookMaster.getId(),
                 bookMaster.getIsbn13(),

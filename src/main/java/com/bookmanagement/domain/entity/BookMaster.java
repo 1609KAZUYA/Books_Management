@@ -26,6 +26,12 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor
 @Entity
 @Table(schema = "app", name = "book_master")
+/**
+ * book_masterテーブルに対応するEntityです。
+ *
+ * Laravelでいう Eloquent Model に近いです。
+ * 「本そのものの情報」を表し、ユーザーごとの読書状態はUserBook側に持たせます。
+ */
 public class BookMaster {
 
     @Id

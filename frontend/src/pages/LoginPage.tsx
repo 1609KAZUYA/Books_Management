@@ -3,9 +3,14 @@ import type { CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { login as apiLogin } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
+import { EditorialAtmosphere, Reveal, ScrollProgressBar } from '../components/Motion'
 import { EDITORIAL, FONTS, shade } from '../styles/editorial'
 
 const C = EDITORIAL
+
+// ログイン画面です。
+// Reactでは「1つの画面」も関数として書き、returnの中に表示するHTMLに近いもの(JSX)を書きます。
+// CSSはこのファイルでは style={...} の形で直接指定しています。
 
 const pageStyle: CSSProperties = {
   minHeight: '100vh',
@@ -38,6 +43,8 @@ const labelStyle: CSSProperties = {
 }
 
 export default function LoginPage() {
+  // useStateは「画面内で変化する値」を保存するためのReact機能です。
+  // 入力欄の値、エラーメッセージ、通信中かどうかをここで持っています。
   const [email, setEmail] = useState('demo@example.com')
   const [password, setPassword] = useState('demo1234')
   const [error, setError] = useState('')
@@ -46,10 +53,12 @@ export default function LoginPage() {
   const navigate = useNavigate()
 
   const submitLogin = async (credentials: { email: string; password: string }) => {
+    // async/await は「API通信の完了を待ってから次へ進む」ための書き方です。
     setError('')
     setLoading(true)
     let response
     try {
+      // apiLogin は frontend/src/api/auth.ts にある関数で、バックエンドのログインAPIを呼びます。
       response = await apiLogin(credentials)
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number; data?: { message?: string } }; message?: string })?.response?.status
@@ -61,6 +70,7 @@ export default function LoginPage() {
     }
 
     try {
+      // ログイン成功時はAuthContextにJWTとユーザー情報を保存し、本棚画面へ移動します。
       login(response)
       navigate('/books')
     } catch (err: unknown) {
@@ -72,12 +82,15 @@ export default function LoginPage() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
+    // form送信時にブラウザ標準のページ再読み込みを止め、React側でログイン処理します。
     e.preventDefault()
     submitLogin({ email, password })
   }
 
   return (
-    <div style={pageStyle}>
+    <div style={{ ...pageStyle, position: 'relative', overflow: 'hidden' }}>
+      <ScrollProgressBar />
+      <EditorialAtmosphere />
       <header
         style={{
           display: 'flex',
@@ -86,6 +99,8 @@ export default function LoginPage() {
           padding: '24px 56px',
           borderBottom: `1px solid ${C.line}`,
           background: C.paper,
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         <Link
@@ -134,8 +149,11 @@ export default function LoginPage() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
           gap: 72,
           alignItems: 'center',
+          position: 'relative',
+          zIndex: 1,
         }}
       >
+        <Reveal>
         <section>
           <div
             style={{
@@ -176,8 +194,11 @@ export default function LoginPage() {
           </p>
           <LoginShelfPreview />
         </section>
+        </Reveal>
 
+        <Reveal delay={120}>
         <section
+          className="bm-hover-sheen"
           style={{
             background: C.panel,
             border: `1px solid ${C.line}`,
@@ -305,12 +326,15 @@ export default function LoginPage() {
             </Link>
           </p>
         </section>
+        </Reveal>
       </main>
     </div>
   )
 }
 
 function LoginShelfPreview() {
+  // 画面左側に表示している装飾用の本棚プレビューです。
+  // 実データではなく、ログイン画面の雰囲気を合わせるための固定表示です。
   const books = [
     { title: 'READING', color: C.accent, width: '74%' },
     { title: 'TSUNDOKU', color: '#a8743a', width: '88%' },
@@ -329,6 +353,7 @@ function LoginShelfPreview() {
       {books.map((book, index) => (
         <div
           key={book.title}
+          className="bm-hover-sheen"
           style={{
             width: book.width,
             height: 46 + index * 4,

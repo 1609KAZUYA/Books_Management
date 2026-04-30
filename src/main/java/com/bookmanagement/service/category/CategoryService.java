@@ -19,6 +19,12 @@ import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * カテゴリーに関する業務処理を担当します。
+ *
+ * Controllerから呼ばれ、Repositoryを使ってDBを読み書きします。
+ * Laravelでいうと「Controllerから切り出したService」+「Eloquent操作」に近い層です。
+ */
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
@@ -26,7 +32,10 @@ public class CategoryService {
 
     @Transactional(readOnly = true)
     public CategoryListResponse listCategories() {
+        // ログイン中のユーザーを取得します。他人のカテゴリを見せないためです。
         User user = userContextService.requireCurrentUser();
+
+        // RepositoryでDBからカテゴリを取得し、Response DTOへ変換して返します。
         List<CategoryResponse> items = categoryRepository.findByUser_IdOrderBySortOrderAscIdAsc(user.getId())
                 .stream()
                 .map(this::toResponse)
@@ -38,10 +47,13 @@ public class CategoryService {
     public CategoryResponse createCategory(CreateCategoryRequest request) {
         User user = userContextService.requireCurrentUser();
         String name = normalizeCategoryName(request.name());
+
+        // 同じユーザー内で同名カテゴリが重複しないようにチェックします。
         if (categoryRepository.existsByUser_IdAndNameIgnoreCase(user.getId(), name)) {
             throw new DuplicateException("CATEGORY-409", "Category name already exists");
         }
 
+        // Entityを作り、Repository.save(...) でDBへINSERTします。
         Category category = new Category();
         category.setUser(user);
         category.setName(name);
@@ -53,11 +65,16 @@ public class CategoryService {
     @Transactional
     public CategoryResponse updateCategory(Long categoryId, UpdateCategoryRequest request) {
         User user = userContextService.requireCurrentUser();
+
+        // 「指定ID」かつ「ログイン中ユーザーのカテゴリ」で探します。
+        // これにより、他人のカテゴリIDを指定されても更新できません。
         Category category = categoryRepository.findByIdAndUser_Id(categoryId, user.getId())
                 .orElseThrow(() -> new NotFoundException("CATEGORY-404", "Category not found"));
 
         if (request.name() != null) {
             String name = normalizeCategoryName(request.name());
+
+            // 変更後の名前が既に使われている場合だけ重複エラーにします。
             boolean duplicated = categoryRepository.existsByUser_IdAndNameIgnoreCase(user.getId(), name)
                     && !name.equalsIgnoreCase(category.getName());
             if (duplicated) {
@@ -77,6 +94,7 @@ public class CategoryService {
     @Transactional
     public void deleteCategory(Long categoryId) {
         User user = userContextService.requireCurrentUser();
+        // 削除対象も必ず「自分のカテゴリ」だけに限定します。
         Category category = categoryRepository.findByIdAndUser_Id(categoryId, user.getId())
                 .orElseThrow(() -> new NotFoundException("CATEGORY-404", "Category not found"));
         categoryRepository.delete(category);
@@ -84,6 +102,7 @@ public class CategoryService {
 
     @Transactional(readOnly = true)
     public Category resolveCategory(Long userId, Long categoryId) {
+        // 本の登録・更新時に、指定されたcategoryIdが本当にそのユーザーのものか確認します。
         if (categoryId == null) {
             return null;
         }
@@ -92,6 +111,7 @@ public class CategoryService {
     }
 
     private String normalizeCategoryName(String name) {
+        // null / 空文字 / スペースだけ、を同じ「未入力」として扱います。
         if (!StringUtils.hasText(name)) {
             throw new ValidationException("VALIDATION_ERROR", "Category name is required");
         }
@@ -99,6 +119,7 @@ public class CategoryService {
     }
 
     public CategoryResponse toResponse(Category category) {
+        // categoryIdが未指定の本はカテゴリなしなので、nullをそのまま返します。
         if (category == null) {
             return null;
         }

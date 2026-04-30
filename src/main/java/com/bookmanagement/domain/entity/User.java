@@ -21,16 +21,24 @@ import org.hibernate.annotations.UpdateTimestamp;
 @NoArgsConstructor
 @Entity
 @Table(schema = "app", name = "users")
+/**
+ * usersテーブルに対応するEntityです。
+ *
+ * Laravelでいう User Eloquent Model に近いです。
+ * ログインID、パスワードハッシュ、表示名など、ユーザー本人の情報を持ちます。
+ */
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    // DB側で自動採番される主キーです。
     private Long id;
 
     @Column(nullable = false, length = 255)
     private String email;
 
     @Column(name = "password_hash", nullable = false, length = 255)
+    // 生のパスワードではなく、BCryptでハッシュ化した文字列を保存します。
     private String passwordHash;
 
     @Column(name = "display_name", nullable = false, length = 100)

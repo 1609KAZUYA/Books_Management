@@ -26,6 +26,12 @@ import org.hibernate.annotations.UpdateTimestamp;
 @NoArgsConstructor
 @Entity
 @Table(schema = "app", name = "user_book")
+/**
+ * user_bookテーブルに対応するEntityです。
+ *
+ * Laravelでいう中間テーブル用Modelに近いですが、単なる中間テーブルではありません。
+ * 「ユーザーごとの読書状態・評価・メモ」を持つため、このアプリの本棚の中心データです。
+ */
 public class UserBook {
 
     @Id
@@ -34,14 +40,17 @@ public class UserBook {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
+    // どのユーザーの本棚に入っているかを表します。
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "book_master_id", nullable = false)
+    // 本そのものの共通情報です。タイトル・著者・ISBNなどはBookMaster側にあります。
     private BookMaster bookMaster;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
+    // ユーザーが自由に設定する分類です。未分類の場合はnullです。
     private Category category;
 
     @Enumerated(EnumType.STRING)
@@ -78,5 +87,6 @@ public class UserBook {
     private OffsetDateTime updatedAt;
 
     @Column(name = "deleted_at")
+    // nullなら有効、日時が入っていれば削除済みとして扱うソフトデリート用カラムです。
     private OffsetDateTime deletedAt;
 }

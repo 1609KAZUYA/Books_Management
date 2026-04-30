@@ -33,6 +33,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/books")
+/**
+ * 本に関するAPI入口です。
+ *
+ * Laravelでいう BooksController に近いです。
+ * Controllerは「URLから受け取った値」をServiceへ渡し、Serviceの結果をJSONとして返します。
+ */
 public class BookController {
 
     private final BookService bookService;
@@ -49,6 +55,8 @@ public class BookController {
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
+        // クエリパラメータ例: /api/v1/books?keyword=Java&page=1
+        // RequestParam はURLの ?key=value を受け取るための指定です。
         return bookService.searchBooks(keyword, status, categoryId, uncategorized, favorite, sort, page, size);
     }
 
@@ -59,23 +67,27 @@ public class BookController {
             @RequestParam(required = false, defaultValue = "10") @Min(1) @Max(40) int maxResults,
             @RequestParam(required = false, defaultValue = "0") @Min(0) int startIndex
     ) {
+        // Google BooksやNDLなど、外部の本検索APIを使って候補を探します。
         return externalBookSearchService.search(query, type, maxResults, startIndex);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public UserBookDetailResponse createManualBook(@Valid @RequestBody CreateBookRequest request) {
+        // 手入力で本を登録します。入力チェック後、BookServiceでDB保存します。
         return bookService.createManualBook(request);
     }
 
     @PostMapping("/import-by-isbn")
     @ResponseStatus(HttpStatus.CREATED)
     public UserBookDetailResponse importByIsbn(@Valid @RequestBody ImportByIsbnRequest request) {
+        // ISBNから本の情報を探し、見つかった情報を使って登録します。
         return bookService.importByIsbn(request);
     }
 
     @GetMapping("/{userBookId}")
     public UserBookDetailResponse getBookDetail(@PathVariable Long userBookId) {
+        // @PathVariable は /books/123 の 123 のようなURL内の値を受け取ります。
         return bookService.getBookDetail(userBookId);
     }
 
@@ -84,11 +96,13 @@ public class BookController {
             @PathVariable Long userBookId,
             @Valid @RequestBody UpdateBookRequest request
     ) {
+        // 本のステータス・評価・メモ・カテゴリなどを更新します。
         return bookService.updateBook(userBookId, request);
     }
 
     @DeleteMapping("/{userBookId}")
     public ResponseEntity<Void> deleteBook(@PathVariable Long userBookId) {
+        // 実際には完全削除ではなく、deletedAtを入れるソフトデリートです。
         bookService.deleteBook(userBookId);
         return ResponseEntity.noContent().build();
     }
@@ -98,6 +112,7 @@ public class BookController {
             @PathVariable Long userBookId,
             @Valid @RequestBody UpdateStatusRequest request
     ) {
+        // 一覧画面などからステータスだけを素早く変更するためのAPIです。
         return bookService.updateStatus(userBookId, request);
     }
 

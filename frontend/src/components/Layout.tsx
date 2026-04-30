@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { logout as apiLogout } from '../api/auth'
 import { EDITORIAL, FONTS, shade } from '../styles/editorial'
+import { EditorialAtmosphere, ScrollProgressBar } from './Motion'
 
 const NAV_ITEMS: { to: string; jp: string; en: string }[] = [
   { to: '/books', jp: '本棚', en: 'Library' },
@@ -34,10 +35,13 @@ export default function Layout() {
         WebkitFontSmoothing: 'antialiased',
         textRendering: 'optimizeLegibility',
         fontFeatureSettings: '"palt"',
+        position: 'relative',
       }}
     >
+      <ScrollProgressBar />
+      <EditorialAtmosphere />
       <AppHeader user={user} onLogout={handleLogout} />
-      <main>
+      <main style={{ position: 'relative', zIndex: 1 }}>
         <Outlet />
       </main>
       <footer
@@ -49,6 +53,8 @@ export default function Layout() {
           fontSize: 12,
           color: EDITORIAL.inkMuted,
           background: EDITORIAL.paper,
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         <div style={{ fontFamily: FONTS.serif, fontStyle: 'italic' }}>Books Memo · 2026</div>

@@ -3,9 +3,13 @@ import type { CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { register as apiRegister } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
+import { EditorialAtmosphere, Reveal, ScrollProgressBar } from '../components/Motion'
 import { EDITORIAL, FONTS, shade } from '../styles/editorial'
 
 const C = EDITORIAL
+
+// 新規登録画面です。
+// ログイン画面と同じデザイン部品を使い、Books Memo全体の見た目を統一しています。
 
 const pageStyle: CSSProperties = {
   minHeight: '100vh',
@@ -48,6 +52,8 @@ const errorStyle: CSSProperties = {
 }
 
 export default function RegisterPage() {
+  // 入力欄の値をReactのstateとして管理します。
+  // setDisplayName(...) のような関数を呼ぶと、画面が再描画されます。
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -58,22 +64,26 @@ export default function RegisterPage() {
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
+    // form送信時にページ全体が再読み込みされないよう止めます。
     e.preventDefault()
     setError('')
 
     if (password !== passwordConfirm) {
+      // フロント側でも確認用パスワードの一致をチェックし、無駄なAPI通信を避けます。
       setError('確認用パスワードが一致しません')
       return
     }
 
     setLoading(true)
     try {
+      // apiRegister はバックエンドの /auth/register を呼ぶ関数です。
       const response = await apiRegister({
         displayName: displayName.trim(),
         email: email.trim(),
         password,
       })
       login(response)
+      // 登録後はそのままログイン済みにして本棚画面へ移動します。
       navigate('/books')
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number; data?: { message?: string } } })?.response?.status
@@ -86,7 +96,9 @@ export default function RegisterPage() {
   }
 
   return (
-    <div style={pageStyle}>
+    <div style={{ ...pageStyle, position: 'relative', overflow: 'hidden' }}>
+      <ScrollProgressBar />
+      <EditorialAtmosphere />
       <header
         style={{
           display: 'flex',
@@ -95,6 +107,8 @@ export default function RegisterPage() {
           padding: '24px 56px',
           borderBottom: `1px solid ${C.line}`,
           background: C.paper,
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         <Link
@@ -143,8 +157,11 @@ export default function RegisterPage() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))',
           gap: 72,
           alignItems: 'center',
+          position: 'relative',
+          zIndex: 1,
         }}
       >
+        <Reveal>
         <section>
           <div
             style={{
@@ -185,8 +202,11 @@ export default function RegisterPage() {
           </p>
           <RegisterShelfPreview />
         </section>
+        </Reveal>
 
+        <Reveal delay={120}>
         <section
+          className="bm-hover-sheen"
           style={{
             background: C.panel,
             border: `1px solid ${C.line}`,
@@ -243,7 +263,7 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={8}
+                minLength={12}
                 maxLength={72}
                 style={inputStyle}
               />
@@ -256,7 +276,7 @@ export default function RegisterPage() {
                 value={passwordConfirm}
                 onChange={(e) => setPasswordConfirm(e.target.value)}
                 required
-                minLength={8}
+                minLength={12}
                 maxLength={72}
                 style={inputStyle}
               />
@@ -300,12 +320,15 @@ export default function RegisterPage() {
             </Link>
           </p>
         </section>
+        </Reveal>
       </main>
     </div>
   )
 }
 
 function RegisterShelfPreview() {
+  // 登録までの流れを本の背表紙風に見せる装飾です。
+  // 実際の登録処理とは関係しない、画面デザイン用の固定表示です。
   const steps = [
     { title: 'PROFILE', sub: 'Your name', color: '#3a5a4a', width: '72%' },
     { title: 'ACCOUNT', sub: 'Email and password', color: C.accent, width: '90%' },
@@ -324,6 +347,7 @@ function RegisterShelfPreview() {
       {steps.map((step, index) => (
         <div
           key={step.title}
+          className="bm-hover-sheen"
           style={{
             width: step.width,
             minHeight: 54,

@@ -1,3 +1,175 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes bm-strip-drift {
+  0% {
+    transform: translate3d(0, -8%, 0);
+  }
+  50% {
+    transform: translate3d(0, 8%, 0);
+  }
+  100% {
+    transform: translate3d(0, -8%, 0);
+  }
+}
+
+@keyframes bm-grain-shift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-28px, 18px, 0);
+  }
+}
+
+@keyframes bm-book-float {
+  0%,
+  100% {
+    transform: translateX(-50%) translate3d(0, 0, 0) rotate(var(--book-rotate, 0deg));
+  }
+  50% {
+    transform: translateX(-50%) translate3d(var(--book-drift-x, 0), -8px, 0)
+      rotate(calc(var(--book-rotate, 0deg) + 0.25deg));
+  }
+}
+
+.bm-atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bm-atmosphere__strip {
+  position: absolute;
+  top: 8vh;
+  width: 1px;
+  height: 58vh;
+  opacity: 0.32;
+  animation: bm-strip-drift 9s ease-in-out infinite;
+}
+
+.bm-atmosphere__strip--slow {
+  top: 18vh;
+  height: 46vh;
+  animation-duration: 13s;
+  animation-delay: -4s;
+}
+
+.bm-atmosphere__strip--wide {
+  top: 2vh;
+  width: 2px;
+  height: 66vh;
+  animation-duration: 15s;
+  animation-delay: -7s;
+}
+
+.bm-atmosphere__grain {
+  position: absolute;
+  inset: -24px;
+  background-image:
+    linear-gradient(rgba(42, 32, 26, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42, 32, 26, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px, 44px 44px;
+  animation: bm-grain-shift 18s linear infinite alternate;
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid rgba(166, 91, 48, 0.85);
+  outline-offset: 3px;
+}
+
+.bm-bento-stat {
+  position: relative;
+  min-height: 140px;
+  padding: 22px;
+  border: 1px solid rgba(42, 32, 26, 0.11);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.52), rgba(244, 237, 224, 0.78)),
+    rgba(250, 247, 240, 0.92);
+  box-shadow: 0 16px 38px -32px rgba(42, 32, 26, 0.45);
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.bm-bento-stat:hover {
+  transform: translateY(-2px);
+  border-color: rgba(166, 91, 48, 0.3);
+  box-shadow: 0 24px 46px -34px rgba(42, 32, 26, 0.55);
+}
+
+.bm-bento-stat--wide {
+  grid-column: span 2;
+}
+
+.bm-hover-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.bm-hover-sheen::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    transparent 42%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 58%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  transition: transform 760ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.bm-hover-sheen:hover::after {
+  transform: translateX(120%);
+}
+
+.bm-float-book {
+  animation: bm-book-float 7s ease-in-out infinite;
+}
+
+.bm-float-book:nth-child(2n) {
+  animation-duration: 8.5s;
+  animation-delay: -2s;
+}
+
+.bm-float-book:nth-child(3n) {
+  animation-duration: 9.5s;
+  animation-delay: -4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .bm-atmosphere__grain,
+  .bm-atmosphere__strip,
+  .bm-float-book {
+    animation: none !important;
+  }
+
+  .bm-hover-sheen::after {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .bm-bento-stat--wide {
+    grid-column: span 1;
+  }
+}

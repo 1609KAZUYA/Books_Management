@@ -21,6 +21,12 @@ import org.hibernate.annotations.UpdateTimestamp;
 @NoArgsConstructor
 @Entity
 @Table(schema = "app", name = "categories")
+/**
+ * categoriesテーブルに対応するEntityです。
+ *
+ * Laravelでいう Category Model に近いです。
+ * カテゴリはユーザーごとに作成できるため、必ずUserと紐づきます。
+ */
 public class Category {
 
     @Id
@@ -29,12 +35,14 @@ public class Category {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
+    // どのユーザーが作ったカテゴリかを表します。
     private User user;
 
     @Column(nullable = false, length = 50)
     private String name;
 
     @Column(name = "color_hex", length = 7, columnDefinition = "bpchar(7)")
+    // 画面でカテゴリを色分けするための #RRGGBB 形式の文字列です。
     private String colorHex;
 
     @Column(name = "sort_order", nullable = false)
