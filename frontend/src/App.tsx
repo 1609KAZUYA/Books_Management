@@ -1,4 +1,5 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
@@ -32,11 +33,24 @@ function GuestRoute({ children }: { children: JSX.Element }) {
   return children
 }
 
+function ScrollToTop() {
+  // React Routerの画面遷移では、前のページのスクロール位置が残ることがあります。
+  // URLのパスや検索条件が変わったら、毎回ページ最上部へ戻して表示開始位置を揃えます。
+  const { pathname, search } = useLocation()
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [pathname, search])
+
+  return null
+}
+
 export default function App() {
   return (
     // AuthProviderで囲むことで、配下の全画面からログイン状態を参照できます。
     <AuthProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           {/* 誰でも見られる画面 */}
           <Route path="/" element={<HomeRoute />} />

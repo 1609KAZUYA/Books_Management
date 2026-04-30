@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { EditorialAtmosphere, Reveal, ScrollProgressBar } from '../components/Motion'
-import { EDITORIAL, FONTS, shade } from '../styles/editorial'
+import { EDITORIAL, FONTS, STATUS_INK, shade } from '../styles/editorial'
 
 const C = EDITORIAL
 const SERIF = FONTS.serif
@@ -119,11 +119,13 @@ export default function LandingPage() {
             onMouseEnter={() => setHovered('cta-top')}
             onMouseLeave={() => setHovered(null)}
             style={{
-              background: hovered === 'cta-top' ? C.ink : C.accent,
-              color: C.paper,
+              background: hovered === 'cta-top'
+                ? `linear-gradient(135deg, ${shade(C.accent, -8)}, ${STATUS_INK.TSUNDOKU})`
+                : `linear-gradient(135deg, ${C.accent}, ${STATUS_INK.TSUNDOKU})`,
+              color: '#fff',
               minHeight: 44,
               padding: '11px 22px',
-              borderRadius: 2,
+              borderRadius: 999,
               fontSize: 13,
               fontWeight: 500,
               letterSpacing: '0.04em',
@@ -138,30 +140,39 @@ export default function LandingPage() {
         </header>
 
         {/* Hero */}
-        <section style={{ padding: '88px 64px 96px', borderBottom: `1px solid ${C.line}` }}>
+        <section style={{ padding: '48px 64px 72px', borderBottom: `1px solid ${C.line}` }}>
           <Reveal>
             <div
+              className="bm-dashboard-hero bm-glass-layer bm-landing-hero"
               style={{
-                fontFamily: MONO,
-                fontSize: 11,
-                letterSpacing: '0.18em',
-                color: C.accent,
-                marginBottom: 32,
+                padding: 32,
               }}
             >
-              VOL. 01 — TURN YOUR STACK INTO MOMENTUM
-            </div>
-          </Reveal>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1.3fr 1fr',
-              gap: 80,
-              alignItems: 'end',
-            }}
-          >
-            <Reveal delay={80}>
+              <div
+                className="bm-landing-hero-grid"
+                style={{
+                  fontFamily: MONO,
+                  fontSize: 11,
+                  letterSpacing: '0.16em',
+                  color: C.accent,
+                  marginBottom: 24,
+                  position: 'relative',
+                  zIndex: 1,
+                }}
+              >
+                TURN YOUR STACK INTO MOMENTUM
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1.3fr 1fr',
+                  gap: 72,
+                  alignItems: 'end',
+                  position: 'relative',
+                  zIndex: 1,
+                }}
+              >
+            <div>
               <h1
                 style={{
                   fontFamily: SERIF,
@@ -200,11 +211,11 @@ export default function LandingPage() {
                   onMouseEnter={() => setHovered('cta-hero')}
                   onMouseLeave={() => setHovered(null)}
                   style={{
-                    background: C.ink,
-                    color: C.paper,
+                    background: `linear-gradient(135deg, ${C.accent}, ${STATUS_INK.TSUNDOKU})`,
+                    color: '#fff',
                     minHeight: 48,
                     padding: '16px 32px',
-                    borderRadius: 2,
+                    borderRadius: 999,
                     fontSize: 15,
                     fontWeight: 500,
                     border: 'none',
@@ -231,12 +242,14 @@ export default function LandingPage() {
                   Find your next read · Build reading momentum
                 </span>
               </div>
-            </Reveal>
+            </div>
 
-            <Reveal delay={180} style={{ position: 'relative', height: 410 }}>
+            <div style={{ position: 'relative', height: 410 }}>
               <BookStack onViewAll={goBooks} />
-            </Reveal>
+            </div>
           </div>
+            </div>
+          </Reveal>
         </section>
 
         {/* Stats strip */}
@@ -351,8 +364,11 @@ export default function LandingPage() {
           style={{
             padding: '140px 64px 120px',
             textAlign: 'center',
-            background: C.ink,
-            color: C.paper,
+            background:
+              `radial-gradient(circle at 22% 16%, ${STATUS_INK.TSUNDOKU}42, transparent 32%),` +
+              `radial-gradient(circle at 78% 12%, ${STATUS_INK.WISHLIST}38, transparent 34%),` +
+              `linear-gradient(135deg, ${shade(C.accent, -22)}, ${C.ink})`,
+            color: '#fff',
           }}
         >
           <Reveal>
@@ -402,11 +418,13 @@ export default function LandingPage() {
             onMouseEnter={() => setHovered('cta-end')}
             onMouseLeave={() => setHovered(null)}
             style={{
-              background: hovered === 'cta-end' ? C.paper : C.accent,
-              color: hovered === 'cta-end' ? C.ink : C.paper,
+              background: hovered === 'cta-end'
+                ? '#fff'
+                : `linear-gradient(135deg, ${C.accent}, ${STATUS_INK.TSUNDOKU})`,
+              color: hovered === 'cta-end' ? C.ink : '#fff',
               padding: '20px 44px',
               minHeight: 56,
-              borderRadius: 2,
+              borderRadius: 999,
               fontSize: 16,
               fontWeight: 500,
               letterSpacing: '0.03em',

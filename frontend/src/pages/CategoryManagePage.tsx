@@ -7,7 +7,7 @@ import {
   updateCategory,
 } from '../api/categories'
 import type { Category } from '../types/api'
-import { CATEGORY_PALETTE, EDITORIAL, FONTS, shade } from '../styles/editorial'
+import { CATEGORY_PALETTE, EDITORIAL, FONTS, STATUS_INK, shade } from '../styles/editorial'
 import { categoryBackground, readableTextColor } from '../utils/color'
 
 const DEFAULT_CATEGORY_COLOR = CATEGORY_PALETTE[0]
@@ -85,46 +85,50 @@ export default function CategoryManagePage() {
 
   return (
     <div className="bm-modern-shell" style={{ color: EDITORIAL.ink }}>
-      <section style={{ padding: '56px 56px 36px' }}>
+      <section style={{ padding: '48px 56px 24px' }}>
         <div
+          className="bm-dashboard-hero bm-glass-layer bm-categories-hero"
           style={{
-            fontFamily: FONTS.mono,
-            fontSize: 11,
-            color: EDITORIAL.accent,
-            letterSpacing: '0.2em',
-            marginBottom: 20,
+            padding: 28,
           }}
         >
-          ── CATALOGUE · ORGANIZE BY COLOR ──
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div
+              style={{
+                fontFamily: FONTS.mono,
+                fontSize: 11,
+                color: EDITORIAL.accent,
+                letterSpacing: '0.16em',
+                marginBottom: 14,
+              }}
+            >
+              CATEGORIES · CHOOSE BY MOOD
+            </div>
+            <h1
+              style={{
+                fontFamily: FONTS.serif,
+                fontSize: 58,
+                fontWeight: 500,
+                letterSpacing: '-0.025em',
+                lineHeight: 1,
+                margin: 0,
+              }}
+            >
+              気分で選べる棚をつくる
+            </h1>
+            <p
+              style={{
+                fontSize: 16,
+                color: EDITORIAL.inkSoft,
+                marginTop: 14,
+                maxWidth: 700,
+                lineHeight: 1.7,
+              }}
+            >
+              学びたい日、物語に浸りたい日、積読を減らしたい日。カテゴリーの色で、次に読む本を選びやすくします。
+            </p>
+          </div>
         </div>
-        <h1
-          style={{
-            fontFamily: FONTS.serif,
-            fontSize: 88,
-            fontWeight: 300,
-            letterSpacing: '-0.03em',
-            lineHeight: 1,
-            margin: 0,
-          }}
-        >
-          カテゴリー{' '}
-          <span style={{ fontStyle: 'italic', color: EDITORIAL.accent, fontSize: 64 }}>
-            Categories
-          </span>
-        </h1>
-        <p
-          style={{
-            fontSize: 16,
-            color: EDITORIAL.inkSoft,
-            marginTop: 18,
-            maxWidth: 580,
-            fontFamily: FONTS.serif,
-            fontStyle: 'italic',
-            lineHeight: 1.7,
-          }}
-        >
-          自由に作れるカテゴリーには、好きな色を添えて。背表紙のように並んだラベルが、本棚に小さなリズムを生みます。
-        </p>
       </section>
 
       {error && (
@@ -146,6 +150,7 @@ export default function CategoryManagePage() {
       )}
 
       <section
+        className="bm-categories-layout"
         style={{
           padding: '0 56px 80px',
           display: 'grid',
@@ -174,7 +179,7 @@ export default function CategoryManagePage() {
               marginBottom: 14,
             }}
           >
-            ── NEW ENTRY ──
+          NEW SHELF COLOR
           </div>
           <h2
             style={{
@@ -186,7 +191,7 @@ export default function CategoryManagePage() {
               margin: 0,
             }}
           >
-            新しいカテゴリー
+            新しい棚を追加
           </h2>
           <p
             style={{
@@ -198,7 +203,7 @@ export default function CategoryManagePage() {
               marginTop: 6,
             }}
           >
-            Add a new category
+            読みたい気分に名前と色をつけます。
           </p>
 
           <label style={{ display: 'block', marginBottom: 22 }}>
@@ -291,8 +296,9 @@ export default function CategoryManagePage() {
             style={{
               marginBottom: 28,
               padding: 16,
-              background: EDITORIAL.paperDeep,
+              background: 'rgba(255,255,255,0.66)',
               border: `1px solid ${EDITORIAL.lineSoft}`,
+              borderRadius: 16,
             }}
           >
             <div
@@ -341,21 +347,21 @@ export default function CategoryManagePage() {
               background: creating
                 ? EDITORIAL.inkMuted
                 : submitHover
-                  ? EDITORIAL.ink
-                  : EDITORIAL.accent,
-              color: EDITORIAL.paper,
+                  ? `linear-gradient(135deg, ${shade(EDITORIAL.accent, -8)}, ${STATUS_INK.TSUNDOKU})`
+                  : `linear-gradient(135deg, ${EDITORIAL.accent}, ${STATUS_INK.TSUNDOKU})`,
+              color: '#fff',
               padding: '14px 0',
-              borderRadius: 2,
+              borderRadius: 999,
               border: 'none',
               fontSize: 14,
-              fontWeight: 500,
+              fontWeight: 800,
               fontFamily: FONTS.sans,
               cursor: creating ? 'wait' : 'pointer',
               transition: 'all 0.25s',
               letterSpacing: '0.04em',
             }}
           >
-            {creating ? '追加中…  Adding…' : '追加する  Add  →'}
+            {creating ? '追加中...' : 'カテゴリーを追加する'}
           </button>
         </form>
 

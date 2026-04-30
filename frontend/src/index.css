@@ -284,3 +284,94 @@
     border-radius: 14px;
   }
 }
+
+@media (max-width: 920px) {
+  .bm-book-new-page {
+    padding: 28px 18px 64px !important;
+  }
+
+  .bm-book-new-hero,
+  .bm-book-new-result-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bm-book-new-steps,
+  .bm-book-new-tabs {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bm-book-new-search-form,
+  .bm-book-new-isbn-form,
+  .bm-book-new-manual-grid,
+  .bm-book-new-candidate {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bm-book-new-settings {
+    position: static !important;
+  }
+}
+
+.bm-detail-cover-img,
+.bm-detail-cover-placeholder {
+  width: 116px;
+  height: 166px;
+  object-fit: cover;
+  border-radius: 16px;
+  box-shadow: 0 22px 44px -28px rgba(79, 127, 247, 0.64);
+  background: linear-gradient(135deg, rgba(79, 127, 247, 0.18), rgba(255, 122, 89, 0.2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bm-detail-cover-placeholder-text {
+  color: rgba(24, 32, 51, 0.48);
+  font-size: 12px;
+  text-align: center;
+  padding: 10px;
+}
+
+@media (max-width: 920px) {
+  .bm-book-detail-page {
+    padding: 28px 18px 64px !important;
+  }
+
+  .bm-book-detail-hero,
+  .bm-book-detail-layout,
+  .bm-book-detail-info-grid,
+  .bm-book-status-actions {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bm-book-detail-side {
+    position: static !important;
+  }
+}
+
+@media (max-width: 920px) {
+  .bm-books-hero,
+  .bm-categories-hero,
+  .bm-landing-hero {
+    padding: 22px !important;
+  }
+
+  .bm-categories-layout,
+  .bm-auth-layout {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  .bm-categories-layout {
+    padding: 0 18px 64px !important;
+  }
+
+  .bm-categories-layout form {
+    position: static !important;
+  }
+
+  .bm-landing-hero-grid {
+    grid-template-columns: 1fr !important;
+    gap: 28px !important;
+  }
+}

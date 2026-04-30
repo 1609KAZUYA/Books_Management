@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { register as apiRegister } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
 import { EditorialAtmosphere, Reveal, ScrollProgressBar } from '../components/Motion'
-import { EDITORIAL, FONTS, shade } from '../styles/editorial'
+import { EDITORIAL, FONTS, STATUS_INK, shade } from '../styles/editorial'
 
 const C = EDITORIAL
 
@@ -22,13 +22,14 @@ const pageStyle: CSSProperties = {
 
 const inputStyle: CSSProperties = {
   width: '100%',
-  border: 'none',
-  borderBottom: `1px solid ${C.ink}`,
-  background: 'transparent',
+  minHeight: 50,
+  border: `1px solid ${C.line}`,
+  borderRadius: 14,
+  background: 'rgba(255,255,255,0.78)',
   color: C.ink,
-  fontFamily: FONTS.serif,
-  fontSize: 17,
-  padding: '10px 0 12px',
+  fontFamily: FONTS.sans,
+  fontSize: 15,
+  padding: '0 14px',
   outline: 'none',
 }
 
@@ -100,13 +101,15 @@ export default function RegisterPage() {
       <ScrollProgressBar />
       <EditorialAtmosphere />
       <header
+        className="bm-glass-layer"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '24px 56px',
-          borderBottom: `1px solid ${C.line}`,
-          background: C.paper,
+          padding: '18px 28px',
+          border: 'none',
+          borderRadius: 18,
+          margin: '14px 18px 0',
           position: 'relative',
           zIndex: 1,
         }}
@@ -149,6 +152,7 @@ export default function RegisterPage() {
       </header>
 
       <main
+        className="bm-auth-layout"
         style={{
           maxWidth: 1180,
           margin: '0 auto',
@@ -172,7 +176,7 @@ export default function RegisterPage() {
               marginBottom: 26,
             }}
           >
-            ── START READING MOMENTUM · FIRST SHELF ──
+            START READING MOMENTUM · FIRST SHELF
           </div>
           <h1
             style={{
@@ -214,7 +218,7 @@ export default function RegisterPage() {
         >
           <div style={{ paddingBottom: 20, marginBottom: 24, borderBottom: `1px solid ${C.line}` }}>
             <div style={{ fontFamily: FONTS.serif, fontSize: 30, fontWeight: 500 }}>
-              新規登録
+              読書ダッシュボードを作る
             </div>
             <div
               style={{
@@ -225,7 +229,7 @@ export default function RegisterPage() {
                 marginTop: 4,
               }}
             >
-              Create your reading shelf
+              登録すると、次に読む本を選びやすくなります。
             </div>
           </div>
 
@@ -288,20 +292,20 @@ export default function RegisterPage() {
               style={{
                 width: '100%',
                 border: 'none',
-                borderRadius: 2,
-                background: loading ? C.inkMuted : C.ink,
-                color: C.paper,
-                minHeight: 48,
+                borderRadius: 999,
+                background: loading ? C.inkMuted : `linear-gradient(135deg, ${C.accent}, ${STATUS_INK.TSUNDOKU})`,
+                color: '#fff',
+                minHeight: 50,
                 padding: '14px 20px',
                 fontFamily: FONTS.sans,
                 fontSize: 14,
-                fontWeight: 600,
+                fontWeight: 800,
                 letterSpacing: 0,
                 cursor: loading ? 'not-allowed' : 'pointer',
                 marginTop: 4,
               }}
             >
-              {loading ? '登録中...' : '登録してはじめる'}
+              {loading ? '登録中...' : '読書を動かしはじめる'}
             </button>
           </form>
 

@@ -194,85 +194,98 @@ export default function BookListPage() {
   return (
     <div className="bm-modern-shell" style={{ color: EDITORIAL.ink }}>
       {/* Page header */}
-      <section style={{ padding: '56px 56px 36px' }}>
+      <section style={{ padding: '48px 56px 24px' }}>
         <Reveal>
           <div
+            className="bm-dashboard-hero bm-glass-layer bm-books-hero"
             style={{
-              fontFamily: FONTS.mono,
-              fontSize: 11,
-              color: EDITORIAL.accent,
-              letterSpacing: '0.2em',
-              marginBottom: 20,
-            }}
-          >
-            ── {totalBooks || '—'} BOOKS · FIND YOUR NEXT READ ──
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 8,
+              padding: 28,
+              display: 'grid',
               gap: 24,
-              flexWrap: 'wrap',
             }}
           >
-            <h1
-              style={{
-                fontFamily: FONTS.serif,
-                fontSize: 88,
-                fontWeight: 300,
-                letterSpacing: '-0.03em',
-                lineHeight: 1,
-                margin: 0,
-              }}
-            >
-              {activeCategory
-                ? activeCategory.name
-                : categoryFilter === 'uncategorized'
-                  ? '未分類'
-                  : '本棚'}{' '}
-              <span style={{ fontStyle: 'italic', color: EDITORIAL.accent, fontSize: 64 }}>
-                {activeCategory
-                  ? 'On this shelf'
-                  : categoryFilter === 'uncategorized'
-                    ? 'Uncategorized'
-                    : 'The Shelf'}
-              </span>
-            </h1>
-            <Link to="/books/new" style={{ textDecoration: 'none' }}>
-              <PrimaryButton label="+ 読みたい本を追加  Add a next read" />
-            </Link>
-          </div>
-          {(activeCategory || categoryFilter === 'uncategorized') && (
-            <div style={{ marginTop: 12 }}>
-              <Link
-                to="/books"
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div
                 style={{
-                  fontFamily: FONTS.serif,
-                  fontStyle: 'italic',
-                  fontSize: 14,
-                  color: EDITORIAL.inkSoft,
-                  textDecoration: 'none',
-                  borderBottom: `1px solid ${EDITORIAL.line}`,
-                }}
-                onClick={() => {
-                  setStatusFilter('all')
-                  setKeyword('')
-                  setInputKeyword('')
+                  fontFamily: FONTS.mono,
+                  fontSize: 11,
+                  color: EDITORIAL.accent,
+                  letterSpacing: '0.16em',
+                  marginBottom: 14,
                 }}
               >
-                ← すべての本棚に戻る  Back to all shelves
-              </Link>
+                {totalBooks || '—'} BOOKS · FIND YOUR NEXT READ
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  justifyContent: 'space-between',
+                  gap: 24,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div>
+                  <h1
+                    style={{
+                      fontFamily: FONTS.serif,
+                      fontSize: 58,
+                      fontWeight: 500,
+                      letterSpacing: '-0.025em',
+                      lineHeight: 1,
+                      margin: 0,
+                    }}
+                  >
+                    {activeCategory
+                      ? activeCategory.name
+                      : categoryFilter === 'uncategorized'
+                        ? '未分類の本'
+                        : '次に読む本を見つける'}
+                  </h1>
+                  <p style={{ color: EDITORIAL.inkSoft, lineHeight: 1.7, maxWidth: 660, margin: '14px 0 0' }}>
+                    積読、読みかけ、読了を一目で整理。今日読みたい一冊へすぐ戻れる本棚です。
+                  </p>
+                </div>
+                <Link to="/books/new" style={{ textDecoration: 'none' }}>
+                  <PrimaryButton label="+ 読みたい本を追加" />
+                </Link>
+              </div>
+              {(activeCategory || categoryFilter === 'uncategorized') && (
+                <div style={{ marginTop: 14 }}>
+                  <Link
+                    to="/books"
+                    className="bm-tactile"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      minHeight: 38,
+                      color: EDITORIAL.inkSoft,
+                      textDecoration: 'none',
+                      border: `1px solid ${EDITORIAL.line}`,
+                      borderRadius: 999,
+                      padding: '0 14px',
+                      background: 'rgba(255,255,255,0.68)',
+                      fontSize: 13,
+                    }}
+                    onClick={() => {
+                      setStatusFilter('all')
+                      setKeyword('')
+                      setInputKeyword('')
+                    }}
+                  >
+                    ← すべての本棚に戻る
+                  </Link>
+                </div>
+              )}
             </div>
-          )}
-          <LibraryPulse
-            total={totalBooks}
-            finished={finishedCount}
-            reading={readingCount}
-            stack={stackCount}
-            categories={categories.length}
-          />
+            <LibraryPulse
+              total={totalBooks}
+              finished={finishedCount}
+              reading={readingCount}
+              stack={stackCount}
+              categories={categories.length}
+            />
+          </div>
         </Reveal>
       </section>
 
@@ -617,13 +630,13 @@ function PrimaryButton({ label }: { label: string }) {
         color: EDITORIAL.paper,
         padding: '14px 26px',
         fontSize: 14,
-        fontWeight: 500,
-        borderRadius: 2,
+        fontWeight: 800,
+        borderRadius: 999,
         border: 'none',
         fontFamily: FONTS.sans,
         cursor: 'pointer',
         transition: 'all 0.25s',
-        letterSpacing: '0.04em',
+        letterSpacing: 0,
         boxShadow: hover ? '0 6px 18px rgba(42,32,26,0.25)' : 'none',
         transform: hover ? 'translateY(-1px)' : 'none',
         whiteSpace: 'nowrap',

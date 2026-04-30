@@ -1,13 +1,43 @@
 import { useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { deleteBook, getBook, updateBook, updateStatus } from '../api/books'
 import { getCategories } from '../api/categories'
-import type { BookStatus, Category, UpdateBookRequest, UserBookDetail } from '../types/api'
-import { BOOK_STATUS_LABELS } from '../types/api'
-import BookStatusBadge from '../components/BookStatusBadge'
 import BookCoverImage from '../components/BookCoverImage'
 import StarRating from '../components/StarRating'
+import { EDITORIAL, FONTS, STATUS_INK } from '../styles/editorial'
+import type { BookStatus, Category, UpdateBookRequest, UserBookDetail } from '../types/api'
+import { BOOK_STATUS_LABELS } from '../types/api'
 import { categoryBackground, readableTextColor } from '../utils/color'
+
+const C = EDITORIAL
+const STATUS_FLOW: BookStatus[] = ['WISHLIST', 'TSUNDOKU', 'READING', 'FINISHED']
+
+const pageStyle: CSSProperties = {
+  padding: '48px 56px 88px',
+  color: C.ink,
+}
+
+const fieldStyle: CSSProperties = {
+  width: '100%',
+  minHeight: 48,
+  border: `1px solid ${C.line}`,
+  borderRadius: 14,
+  background: 'rgba(255,255,255,0.86)',
+  color: C.ink,
+  padding: '0 14px',
+  fontFamily: FONTS.sans,
+  fontSize: 14,
+  outline: 'none',
+}
+
+const textAreaStyle: CSSProperties = {
+  ...fieldStyle,
+  minHeight: 118,
+  padding: 14,
+  resize: 'vertical',
+  lineHeight: 1.6,
+}
 
 export default function BookDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -17,9 +47,9 @@ export default function BookDetailPage() {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [statusSaving, setStatusSaving] = useState<BookStatus | null>(null)
   const [error, setError] = useState('')
 
-  // Edit form state
   const [editStatus, setEditStatus] = useState<BookStatus>('WISHLIST')
   const [editRating, setEditRating] = useState<number | null>(null)
   const [editFavorite, setEditFavorite] = useState(false)
@@ -53,6 +83,13 @@ export default function BookDetailPage() {
     setEditFinishDate(b.finishDate ?? '')
   }
 
+  const cancelEdit = () => {
+    if (!book) return
+    resetForm(book)
+    setEditing(false)
+    setError('')
+  }
+
   const handleSave = async () => {
     if (!book) return
     setSaving(true)
@@ -71,6 +108,7 @@ export default function BookDetailPage() {
       }
       const updated = await updateBook(book.id, req)
       setBook(updated)
+      resetForm(updated)
       setEditing(false)
     } catch {
       setError('保存に失敗しました')
@@ -80,15 +118,17 @@ export default function BookDetailPage() {
   }
 
   const handleQuickStatusChange = async (newStatus: BookStatus) => {
-    if (!book) return
+    if (!book || book.status === newStatus || statusSaving) return
+    setStatusSaving(newStatus)
+    setError('')
     try {
       const updated = await updateStatus(book.id, { status: newStatus })
       setBook(updated)
-      setEditStatus(updated.status)
-      setEditStartDate(updated.startDate ?? '')
-      setEditFinishDate(updated.finishDate ?? '')
+      resetForm(updated)
     } catch {
       setError('ステータスの更新に失敗しました')
+    } finally {
+      setStatusSaving(null)
     }
   }
 
@@ -104,258 +144,665 @@ export default function BookDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      <div className="bm-modern-shell" style={{ ...pageStyle, minHeight: 420, display: 'grid', placeItems: 'center' }}>
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            border: `3px solid ${C.line}`,
+            borderTopColor: C.accent,
+            animation: 'spin 0.8s linear infinite',
+          }}
+        />
       </div>
     )
   }
 
   if (!book) {
-    return <div className="text-center py-12 text-gray-500">{error || '本が見つかりません'}</div>
+    return (
+      <div className="bm-modern-shell" style={pageStyle}>
+        <Alert>{error || '本が見つかりません'}</Alert>
+      </div>
+    )
   }
 
   const bm = book.bookMaster
+  const categoryColor = categoryBackground(book.category?.colorHex ?? C.accent)
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => navigate('/books')} className="text-sm text-gray-500 hover:text-gray-900">
-          ← 本棚に戻る
-        </button>
-        <div className="flex gap-2">
-          {!editing ? (
-            <>
-              <button
-                onClick={() => setEditing(true)}
-                className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md text-sm hover:bg-gray-50"
-              >
-                編集
-              </button>
-              <button
-                onClick={handleDelete}
-                className="bg-red-50 border border-red-300 text-red-700 px-3 py-1.5 rounded-md text-sm hover:bg-red-100"
-              >
-                削除
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => { setEditing(false); resetForm(book) }}
-                className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md text-sm hover:bg-gray-50"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
-              >
-                {saving ? '保存中...' : '保存'}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
-
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        {/* Book master info */}
-        <div className="flex gap-4 mb-6">
+    <div className="bm-modern-shell bm-book-detail-page" style={pageStyle}>
+      <header
+        className="bm-dashboard-hero bm-glass-layer bm-book-detail-hero"
+        style={{
+          padding: 28,
+          marginBottom: 22,
+          display: 'grid',
+          gridTemplateColumns: '116px minmax(0, 1fr) 260px',
+          gap: 24,
+          alignItems: 'stretch',
+        }}
+      >
+        <div style={{ position: 'relative', zIndex: 1 }}>
           <BookCoverImage
             book={bm}
-            className="w-20 h-28 object-cover rounded flex-shrink-0"
-            placeholderClassName="w-20 h-28 bg-gray-100 rounded flex items-center justify-center flex-shrink-0"
-            placeholderTextClassName="text-gray-400 text-xs"
+            className="bm-detail-cover-img"
+            placeholderClassName="bm-detail-cover-placeholder"
+            placeholderTextClassName="bm-detail-cover-placeholder-text"
           />
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">{bm.title}</h1>
-            {bm.subtitle && <p className="text-sm text-gray-500 mt-0.5">{bm.subtitle}</p>}
-            {bm.authors.length > 0 && (
-              <p className="text-sm text-gray-600 mt-1">{bm.authors.join(', ')}</p>
+        </div>
+
+        <div style={{ position: 'relative', zIndex: 1, minWidth: 0 }}>
+          <button
+            type="button"
+            onClick={() => navigate('/books')}
+            className="bm-tactile"
+            style={{
+              minHeight: 40,
+              border: `1px solid ${C.line}`,
+              borderRadius: 999,
+              background: 'rgba(255,255,255,0.72)',
+              color: C.inkSoft,
+              padding: '0 14px',
+              cursor: 'pointer',
+              marginBottom: 16,
+              fontSize: 13,
+            }}
+          >
+            ← 本棚に戻る
+          </button>
+          <div
+            style={{
+              fontFamily: FONTS.mono,
+              color: C.accent,
+              fontSize: 11,
+              letterSpacing: '0.16em',
+              marginBottom: 10,
+            }}
+          >
+            BOOK DETAIL · NEXT ACTION
+          </div>
+          <h1
+            style={{
+              fontFamily: FONTS.serif,
+              fontSize: 44,
+              lineHeight: 1.12,
+              margin: 0,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {bm.title}
+          </h1>
+          {bm.subtitle && <p style={{ color: C.inkSoft, margin: '8px 0 0', fontSize: 15 }}>{bm.subtitle}</p>}
+          {bm.authors.length > 0 && (
+            <p style={{ color: C.inkSoft, margin: '12px 0 0', fontFamily: FONTS.serif, fontStyle: 'italic' }}>
+              {bm.authors.join(', ')}
+            </p>
+          )}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+            <MetaChip color={STATUS_INK[book.status]}>{BOOK_STATUS_LABELS[book.status]}</MetaChip>
+            {book.category ? (
+              <MetaChip color={categoryColor}>{book.category.name}</MetaChip>
+            ) : (
+              <MetaChip color={C.inkMuted}>未分類</MetaChip>
             )}
-            {bm.publisher && <p className="text-xs text-gray-400 mt-0.5">{bm.publisher}</p>}
-            {bm.publishedDate && <p className="text-xs text-gray-400">{bm.publishedDate}</p>}
-            {(bm.isbn13 || bm.isbn10) && (
-              <p className="text-xs text-gray-400 mt-0.5">
-                ISBN: {bm.isbn13 ?? bm.isbn10}
-              </p>
-            )}
+            {book.favoriteFlag && <MetaChip color={STATUS_INK.TSUNDOKU}>お気に入り</MetaChip>}
           </div>
         </div>
 
-        <hr className="border-gray-100 mb-4" />
+        <ActionPanel
+          editing={editing}
+          saving={saving}
+          onEdit={() => setEditing(true)}
+          onCancel={cancelEdit}
+          onSave={handleSave}
+          onDelete={handleDelete}
+        />
+      </header>
 
-        {/* User info */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Status */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">ステータス</label>
+      {error && <Alert>{error}</Alert>}
+
+      <main
+        className="bm-book-detail-layout"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) 340px',
+          gap: 22,
+          alignItems: 'start',
+        }}
+      >
+        <section style={{ display: 'grid', gap: 18 }}>
+          <StatusQuickActions
+            current={book.status}
+            saving={statusSaving}
+            disabled={editing}
+            onChange={handleQuickStatusChange}
+          />
+
+          <InfoPanel title="読書メモ">
             {editing ? (
-              <select
-                value={editStatus}
-                onChange={(e) => setEditStatus(e.target.value as BookStatus)}
-                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {(Object.keys(BOOK_STATUS_LABELS) as BookStatus[]).map((s) => (
-                  <option key={s} value={s}>{BOOK_STATUS_LABELS[s]}</option>
-                ))}
-              </select>
+              <textarea value={editMemo} onChange={(e) => setEditMemo(e.target.value)} rows={5} style={textAreaStyle} />
             ) : (
-              <div className="flex items-center gap-2">
-                <BookStatusBadge status={book.status} />
-                <div className="flex gap-1">
-                  {(Object.keys(BOOK_STATUS_LABELS) as BookStatus[])
-                    .filter((s) => s !== book.status)
-                    .slice(0, 3)
-                    .map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => handleQuickStatusChange(s)}
-                        className="text-xs text-gray-400 hover:text-gray-600 underline"
-                      >
-                        {BOOK_STATUS_LABELS[s]}
-                      </button>
-                    ))}
+              <ReadableText empty="まだメモはありません。読んだきっかけや気になった言葉を残せます。">
+                {book.memo}
+              </ReadableText>
+            )}
+          </InfoPanel>
+
+          <InfoPanel title="本の情報">
+            <div
+              className="bm-book-detail-info-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                gap: 12,
+              }}
+            >
+              <InfoItem label="出版社" value={bm.publisher} />
+              <InfoItem label="出版日" value={bm.publishedDate} />
+              <InfoItem label="ISBN" value={bm.isbn13 ?? bm.isbn10} />
+              <InfoItem label="保管場所">
+                {editing ? (
+                  <input
+                    type="text"
+                    value={editLocationNote}
+                    onChange={(e) => setEditLocationNote(e.target.value)}
+                    style={fieldStyle}
+                  />
+                ) : (
+                  book.locationNote || '—'
+                )}
+              </InfoItem>
+            </div>
+          </InfoPanel>
+        </section>
+
+        <aside className="bm-glass-layer bm-book-detail-side" style={{ borderRadius: 22, padding: 18, position: 'sticky', top: 106 }}>
+          <h2 style={{ fontFamily: FONTS.serif, fontSize: 24, margin: 0 }}>この本の状態</h2>
+          <p style={{ color: C.inkSoft, fontSize: 13, lineHeight: 1.6, margin: '6px 0 16px' }}>
+            ここだけ見れば、次に何をすればいいか分かります。
+          </p>
+
+          <div style={{ display: 'grid', gap: 14 }}>
+            <FieldGroup label="ステータス">
+              {editing ? (
+                <select value={editStatus} onChange={(e) => setEditStatus(e.target.value as BookStatus)} style={fieldStyle}>
+                  {(Object.keys(BOOK_STATUS_LABELS) as BookStatus[]).map((s) => (
+                    <option key={s} value={s}>
+                      {BOOK_STATUS_LABELS[s]}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <StatusDisplay status={book.status} />
+              )}
+            </FieldGroup>
+
+            <FieldGroup label="評価">
+              {editing ? <StarRating rating={editRating} onChange={setEditRating} /> : <StarRating rating={book.rating} readonly />}
+            </FieldGroup>
+
+            <FieldGroup label="お気に入り">
+              {editing ? (
+                <button
+                  type="button"
+                  onClick={() => setEditFavorite((value) => !value)}
+                  className="bm-tactile"
+                  style={{
+                    minHeight: 48,
+                    border: `1px solid ${editFavorite ? STATUS_INK.TSUNDOKU : C.line}`,
+                    borderRadius: 14,
+                    background: editFavorite ? `${STATUS_INK.TSUNDOKU}18` : 'rgba(255,255,255,0.76)',
+                    color: editFavorite ? STATUS_INK.TSUNDOKU : C.inkSoft,
+                    cursor: 'pointer',
+                    fontWeight: 800,
+                  }}
+                >
+                  {editFavorite ? 'お気に入り中' : 'お気に入りにする'}
+                </button>
+              ) : (
+                <div style={{ color: book.favoriteFlag ? STATUS_INK.TSUNDOKU : C.inkMuted }}>
+                  {book.favoriteFlag ? 'お気に入り' : '未設定'}
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </FieldGroup>
 
-          {/* Rating */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">評価</label>
-            {editing ? (
-              <StarRating rating={editRating} onChange={setEditRating} />
-            ) : (
-              <StarRating rating={book.rating} readonly />
-            )}
-          </div>
+            <FieldGroup label="カテゴリー">
+              {editing ? (
+                <select
+                  value={editCategoryId}
+                  onChange={(e) => setEditCategoryId(e.target.value ? Number(e.target.value) : '')}
+                  style={fieldStyle}
+                >
+                  <option value="">未分類</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              ) : book.category ? (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    minHeight: 34,
+                    borderRadius: 999,
+                    background: categoryColor,
+                    color: readableTextColor(categoryColor),
+                    padding: '0 12px',
+                    fontSize: 13,
+                    fontWeight: 800,
+                  }}
+                >
+                  {book.category.name}
+                </span>
+              ) : (
+                <span style={{ color: C.inkMuted }}>未分類</span>
+              )}
+            </FieldGroup>
 
-          {/* Favorite */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">お気に入り</label>
-            {editing ? (
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={editFavorite}
-                  onChange={(e) => setEditFavorite(e.target.checked)}
-                  className="rounded"
-                />
-                <span className="text-sm">お気に入り</span>
-              </label>
-            ) : (
-              <span className="text-sm">{book.favoriteFlag ? '♥ お気に入り' : '—'}</span>
-            )}
+            <DateGrid
+              editing={editing}
+              purchaseDate={book.purchaseDate}
+              startDate={book.startDate}
+              finishDate={book.finishDate}
+              editPurchaseDate={editPurchaseDate}
+              editStartDate={editStartDate}
+              editFinishDate={editFinishDate}
+              setEditPurchaseDate={setEditPurchaseDate}
+              setEditStartDate={setEditStartDate}
+              setEditFinishDate={setEditFinishDate}
+            />
           </div>
+        </aside>
+      </main>
+    </div>
+  )
+}
 
-          {/* Category */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">カテゴリー</label>
-            {editing ? (
-              <select
-                value={editCategoryId}
-                onChange={(e) => setEditCategoryId(e.target.value ? Number(e.target.value) : '')}
-                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">未分類</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
-                ))}
-              </select>
-            ) : book.category ? (
-              <span
-                className="inline-block px-2 py-0.5 rounded text-xs text-gray-700"
-                style={{
-                  backgroundColor: categoryBackground(book.category.colorHex),
-                  color: readableTextColor(categoryBackground(book.category.colorHex)),
-                }}
-              >
-                {book.category.name}
-              </span>
-            ) : (
-              <span className="text-sm text-gray-400">未分類</span>
-            )}
-          </div>
+function ActionPanel({
+  editing,
+  saving,
+  onEdit,
+  onCancel,
+  onSave,
+  onDelete,
+}: {
+  editing: boolean
+  saving: boolean
+  onEdit: () => void
+  onCancel: () => void
+  onSave: () => void
+  onDelete: () => void
+}) {
+  return (
+    <div
+      style={{
+        position: 'relative',
+        zIndex: 1,
+        display: 'grid',
+        gap: 10,
+        alignSelf: 'center',
+      }}
+    >
+      {editing ? (
+        <>
+          <PrimaryButton onClick={onSave} disabled={saving}>
+            {saving ? '保存中...' : '変更を保存'}
+          </PrimaryButton>
+          <SecondaryButton onClick={onCancel}>キャンセル</SecondaryButton>
+        </>
+      ) : (
+        <>
+          <PrimaryButton onClick={onEdit}>編集する</PrimaryButton>
+          <DangerButton onClick={onDelete}>本棚から削除</DangerButton>
+        </>
+      )}
+    </div>
+  )
+}
 
-          {/* Purchase date */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">購入日</label>
-            {editing ? (
-              <input
-                type="date"
-                value={editPurchaseDate}
-                onChange={(e) => setEditPurchaseDate(e.target.value)}
-                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            ) : (
-              <span className="text-sm">{book.purchaseDate ?? '—'}</span>
-            )}
-          </div>
-
-          {/* Start date */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">読み始め</label>
-            {editing ? (
-              <input
-                type="date"
-                value={editStartDate}
-                onChange={(e) => setEditStartDate(e.target.value)}
-                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            ) : (
-              <span className="text-sm">{book.startDate ?? '—'}</span>
-            )}
-          </div>
-
-          {/* Finish date */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">読了日</label>
-            {editing ? (
-              <input
-                type="date"
-                value={editFinishDate}
-                onChange={(e) => setEditFinishDate(e.target.value)}
-                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            ) : (
-              <span className="text-sm">{book.finishDate ?? '—'}</span>
-            )}
-          </div>
-
-          {/* Memo */}
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-gray-500 mb-1">メモ</label>
-            {editing ? (
-              <textarea
-                value={editMemo}
-                onChange={(e) => setEditMemo(e.target.value)}
-                rows={4}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              />
-            ) : (
-              <p className="text-sm whitespace-pre-wrap">{book.memo || '—'}</p>
-            )}
-          </div>
-
-          {/* Location note */}
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-gray-500 mb-1">保管場所</label>
-            {editing ? (
-              <input
-                type="text"
-                value={editLocationNote}
-                onChange={(e) => setEditLocationNote(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            ) : (
-              <span className="text-sm">{book.locationNote || '—'}</span>
-            )}
-          </div>
-        </div>
+function StatusQuickActions({
+  current,
+  saving,
+  disabled,
+  onChange,
+}: {
+  current: BookStatus
+  saving: BookStatus | null
+  disabled: boolean
+  onChange: (status: BookStatus) => void
+}) {
+  return (
+    <section className="bm-glass-layer" style={{ borderRadius: 22, padding: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', marginBottom: 14, flexWrap: 'wrap' }}>
+        <h2 style={{ fontFamily: FONTS.serif, fontSize: 26, margin: 0 }}>次のアクション</h2>
+        <span style={{ fontFamily: FONTS.mono, fontSize: 11, color: C.inkMuted, letterSpacing: '0.12em' }}>
+          ONE TAP STATUS
+        </span>
       </div>
+      <div
+        className="bm-book-status-actions"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+          gap: 10,
+        }}
+      >
+        {STATUS_FLOW.map((status) => {
+          const active = status === current
+          const color = STATUS_INK[status]
+          return (
+            <button
+              key={status}
+              type="button"
+              onClick={() => onChange(status)}
+              disabled={disabled || active || saving !== null}
+              className="bm-action-tile bm-tactile"
+              style={
+                {
+                  '--tile-accent': color,
+                  minHeight: 82,
+                  border: `1px solid ${active ? `${color}88` : C.line}`,
+                  borderRadius: 18,
+                  background: active ? `${color}18` : 'rgba(255,255,255,0.72)',
+                  color: active ? color : C.ink,
+                  cursor: disabled || active || saving !== null ? 'default' : 'pointer',
+                  textAlign: 'left',
+                  padding: '14px 16px 14px 20px',
+                  opacity: disabled ? 0.55 : 1,
+                } as CSSProperties
+              }
+            >
+              <span style={{ display: 'block', fontSize: 15, fontWeight: 900 }}>
+                {saving === status ? '更新中...' : BOOK_STATUS_LABELS[status]}
+              </span>
+              <span style={{ display: 'block', color: C.inkSoft, fontSize: 12, marginTop: 5 }}>
+                {statusActionHint(status)}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function statusActionHint(status: BookStatus) {
+  switch (status) {
+    case 'WISHLIST':
+      return '気になる本'
+    case 'TSUNDOKU':
+      return 'あとで読む'
+    case 'READING':
+      return '読み始める'
+    case 'FINISHED':
+      return '読了にする'
+    default:
+      return ''
+  }
+}
+
+function StatusDisplay({ status }: { status: BookStatus }) {
+  const color = STATUS_INK[status]
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        minHeight: 40,
+        borderRadius: 999,
+        background: `${color}16`,
+        color,
+        padding: '0 12px',
+        fontWeight: 900,
+      }}
+    >
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+      {BOOK_STATUS_LABELS[status]}
+    </div>
+  )
+}
+
+function DateGrid({
+  editing,
+  purchaseDate,
+  startDate,
+  finishDate,
+  editPurchaseDate,
+  editStartDate,
+  editFinishDate,
+  setEditPurchaseDate,
+  setEditStartDate,
+  setEditFinishDate,
+}: {
+  editing: boolean
+  purchaseDate?: string | null
+  startDate?: string | null
+  finishDate?: string | null
+  editPurchaseDate: string
+  editStartDate: string
+  editFinishDate: string
+  setEditPurchaseDate: (value: string) => void
+  setEditStartDate: (value: string) => void
+  setEditFinishDate: (value: string) => void
+}) {
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      <DateField label="購入日" value={purchaseDate} editValue={editPurchaseDate} editing={editing} onChange={setEditPurchaseDate} />
+      <DateField label="読み始め" value={startDate} editValue={editStartDate} editing={editing} onChange={setEditStartDate} />
+      <DateField label="読了日" value={finishDate} editValue={editFinishDate} editing={editing} onChange={setEditFinishDate} />
+    </div>
+  )
+}
+
+function DateField({
+  label,
+  value,
+  editValue,
+  editing,
+  onChange,
+}: {
+  label: string
+  value?: string | null
+  editValue: string
+  editing: boolean
+  onChange: (value: string) => void
+}) {
+  return (
+    <FieldGroup label={label}>
+      {editing ? (
+        <input type="date" value={editValue} onChange={(e) => onChange(e.target.value)} style={fieldStyle} />
+      ) : (
+        <span style={{ color: value ? C.ink : C.inkMuted }}>{value ?? '未設定'}</span>
+      )}
+    </FieldGroup>
+  )
+}
+
+function InfoPanel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="bm-glass-layer" style={{ borderRadius: 22, padding: 20 }}>
+      <h2 style={{ fontFamily: FONTS.serif, fontSize: 26, margin: '0 0 14px' }}>{title}</h2>
+      {children}
+    </section>
+  )
+}
+
+function InfoItem({
+  label,
+  value,
+  children,
+}: {
+  label: string
+  value?: string | null
+  children?: React.ReactNode
+}) {
+  return (
+    <div
+      style={{
+        border: `1px solid ${C.lineSoft}`,
+        borderRadius: 16,
+        padding: 14,
+        background: 'rgba(255,255,255,0.58)',
+        minHeight: 82,
+      }}
+    >
+      <div style={{ fontFamily: FONTS.mono, color: C.inkMuted, fontSize: 10, letterSpacing: '0.12em', marginBottom: 8 }}>
+        {label.toUpperCase()}
+      </div>
+      <div style={{ color: value || children ? C.ink : C.inkMuted, lineHeight: 1.5 }}>
+        {children ?? value ?? '—'}
+      </div>
+    </div>
+  )
+}
+
+function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: 'grid', gap: 7 }}>
+      <span style={{ fontFamily: FONTS.mono, fontSize: 10, color: C.inkMuted, letterSpacing: '0.12em' }}>
+        {label.toUpperCase()}
+      </span>
+      {children}
+    </label>
+  )
+}
+
+function ReadableText({
+  children,
+  empty,
+}: {
+  children?: string | null
+  empty: string
+}) {
+  return (
+    <p
+      style={{
+        whiteSpace: 'pre-wrap',
+        lineHeight: 1.8,
+        color: children ? C.ink : C.inkMuted,
+        margin: 0,
+      }}
+    >
+      {children || empty}
+    </p>
+  )
+}
+
+function MetaChip({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        minHeight: 32,
+        borderRadius: 999,
+        background: color,
+        color: readableTextColor(color),
+        padding: '0 12px',
+        fontSize: 12,
+        fontWeight: 900,
+      }}
+    >
+      {children}
+    </span>
+  )
+}
+
+function PrimaryButton({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="bm-tactile"
+      style={{
+        minHeight: 50,
+        border: 'none',
+        borderRadius: 999,
+        background: disabled ? C.inkMuted : `linear-gradient(135deg, ${C.accent}, ${STATUS_INK.TSUNDOKU})`,
+        color: '#fff',
+        padding: '0 20px',
+        fontWeight: 900,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        boxShadow: disabled ? 'none' : '0 18px 34px -24px rgba(79,127,247,0.72)',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function SecondaryButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="bm-tactile"
+      style={{
+        minHeight: 48,
+        border: `1px solid ${C.line}`,
+        borderRadius: 999,
+        background: 'rgba(255,255,255,0.78)',
+        color: C.ink,
+        padding: '0 18px',
+        fontWeight: 800,
+        cursor: 'pointer',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function DangerButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="bm-tactile"
+      style={{
+        minHeight: 48,
+        border: `1px solid ${STATUS_INK.DROPPED}44`,
+        borderRadius: 999,
+        background: `${STATUS_INK.DROPPED}10`,
+        color: STATUS_INK.DROPPED,
+        padding: '0 18px',
+        fontWeight: 800,
+        cursor: 'pointer',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function Alert({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        border: `1px solid ${STATUS_INK.DROPPED}33`,
+        background: `${STATUS_INK.DROPPED}12`,
+        color: STATUS_INK.DROPPED,
+        borderRadius: 14,
+        padding: '12px 14px',
+        fontSize: 13,
+        lineHeight: 1.6,
+        marginBottom: 18,
+      }}
+    >
+      {children}
     </div>
   )
 }
