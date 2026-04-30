@@ -1,11 +1,16 @@
 package com.bookmanagement.config;
 
+import com.bookmanagement.common.api.ApiErrorResponse;
+import com.bookmanagement.common.web.RequestIdFilter;
 import com.bookmanagement.security.JwtAuthenticationFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -23,6 +28,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CorsConfigurationSource corsConfigurationSource;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -41,10 +47,14 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, e) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                            response.setContentType("application/json");
-                            response.getWriter().write(
-                                    "{\"code\":\"AUTH-401\",\"message\":\"Unauthorized\"," +
-                                    "\"requestId\":\"" + UUID.randomUUID() + "\",\"details\":[]}");
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            ApiErrorResponse body = new ApiErrorResponse(
+                                    "AUTH-401",
+                                    "Unauthorized",
+                                    resolveRequestId(response),
+                                    List.of()
+                            );
+                            objectMapper.writeValue(response.getWriter(), body);
                         })
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -54,5 +64,10 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    private String resolveRequestId(HttpServletResponse response) {
+        String requestId = response.getHeader(RequestIdFilter.HEADER_NAME);
+        return requestId == null || requestId.isBlank() ? UUID.randomUUID().toString() : requestId;
     }
 }

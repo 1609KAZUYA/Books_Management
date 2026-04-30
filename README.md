@@ -18,7 +18,7 @@ BookManagement/
 
 - Docker Desktop
 - Java 21 + Maven
-- Node.js 18+
+- Node.js 18-22
 
 ### 1. PostgreSQL 起動
 

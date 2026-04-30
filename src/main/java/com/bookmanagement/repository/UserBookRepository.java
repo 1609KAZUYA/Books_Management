@@ -36,8 +36,6 @@ public interface UserBookRepository extends JpaRepository<UserBook, Long>, JpaSp
             """)
     List<UserBook> findRepairableUserBooks(@Param("userId") Long userId, @Param("title") String title);
 
-    boolean existsByUser_IdAndBookMaster_IdAndDeletedAtIsNull(Long userId, Long bookMasterId);
-
     @Override
     @EntityGraph(attributePaths = {"bookMaster", "category"})
     Page<UserBook> findAll(Specification<UserBook> spec, Pageable pageable);

@@ -11,7 +11,6 @@ import com.bookmanagement.dto.category.CreateCategoryRequest;
 import com.bookmanagement.dto.category.UpdateCategoryRequest;
 import com.bookmanagement.repository.CategoryRepository;
 import com.bookmanagement.service.user.UserContextService;
-import java.util.Collection;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -90,14 +89,6 @@ public class CategoryService {
         }
         return categoryRepository.findByIdAndUser_Id(categoryId, userId)
                 .orElseThrow(() -> new NotFoundException("CATEGORY-404", "Category not found"));
-    }
-
-    @Transactional(readOnly = true)
-    public List<Category> resolveCategories(Long userId, Collection<Long> categoryIds) {
-        if (categoryIds == null || categoryIds.isEmpty()) {
-            return List.of();
-        }
-        return categoryRepository.findByUser_IdAndIdIn(userId, categoryIds);
     }
 
     private String normalizeCategoryName(String name) {
